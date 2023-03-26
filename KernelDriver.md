@@ -85,7 +85,13 @@ https://forum.butian.net/share/1706
 
 **映射物理内存到另一个虚拟地址然后修改后再进行恢复 可以绕过 MmProtectDriverSection 的保护**
 
-可利用驱动清单（不太全） https://www.unknowncheats.me/forum/anti-cheat-bypass/334557-vulnerable-driver-megathread.html
+#### VulDrv
+
+https://github.com/alfarom256/CVE-2022-3699
+
+一些可用的驱动
+
+ https://www.unknowncheats.me/forum/anti-cheat-bypass/334557-vulnerable-driver-megathread.html
 
 EAC也会检测部分被滥用的驱动作为外挂特征
 
