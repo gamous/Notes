@@ -85,6 +85,17 @@ https://forum.butian.net/share/1706
 
 **映射物理内存到另一个虚拟地址然后修改后再进行恢复 可以绕过 MmProtectDriverSection 的保护**
 
+#### Black-Angel-Rootkit
+
+https://github.com/XaFF-XaFF/Black-Angel-Rootkit
+
+使用kdmapper实现的内核rootkit
+
+- 关闭DSE和KPP
+- 隐藏进程和端口
+- 进程提权
+- 进程保护
+
 #### VulDrv
 
 https://github.com/alfarom256/CVE-2022-3699
