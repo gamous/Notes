@@ -263,6 +263,19 @@ DbgBreakPoint();
 - 高版本WDK可以编译兼容低版本的驱动
 - 由于win7停止支持，WDK 22H2不兼容win7以下
 
+## Mingw编译
+
+低配电脑开VS实在太卡了，用mingw比较轻量，抄来一个编译方法
+
+一定要使用64位版本的mingw-**w64**，否则winternl.h都没有
+
+```
+编译:gcc -o "OBJ文件名" -O3 -c "源文件名"
+连接:ld "OBJ文件名" --subsystem=native --image-base=0x10000 --file-alignment=0x1000 --section-alignment=0x1000 --entry=_DriverEntry@8 -nostartfiles --nostdlib -shared -L "库路径" -l ntoskrnl -o "驱动文件名"
+```
+
+[基于MSYS的Windows Driver开发 - Martin 的博客](http://martin.is-programmer.com/posts/12654.html)
+
 ## 测试系统
 
 测试驱动时往往不需要使用全功能的系统安装，许多不必要的服务拖慢了系统的速度
