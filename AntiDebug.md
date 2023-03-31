@@ -402,6 +402,34 @@ NtQueryObject_Cleanup:
 
 
 
+## 线程操作  Thread
+
+### ZwCreateThreadEx
+
+https://pastebin.com/jAv5GYUd
+
+直接使用`ZwCreateThreadEx`创建调试器不可见进程
+
+```c
+ZwCreateThreadEx(&hThread,0x1FFFFF,0,GetCurrentProcess(),&dummy,0, 0x4/*HiddenFromDebugger*/,0,0x1000,0x10000,0);
+```
+
+
+
+## 相关符号
+
+### WindowsSyscallsEx
+
+https://github.com/DragonQuestHero/WindowsSyscallsEx
+
+从pdb获取 NT任意符号偏移
+
+### EasyPdb
+
+https://github.com/Kwansy98/EasyPdb
+
+下载并解析
+
 ## 相关结构体
 
 ### PEB
@@ -573,6 +601,10 @@ https://github.com/LordNoteworthy/al-khaser
 
 https://github.com/AdvDebug/AntiCrack-DotNet
 
+## 
+
+
+
 ## 反反调试工具
 
 ### TitanHide
@@ -591,7 +623,27 @@ https://github.com/Air14/HyperHide
 
 使用VT-x和EPT技术
 
+### AADebug
 
+https://github.com/DragonQuestHero/Kernel-Anit-Anit-Debug-Plugins
+
+通过多种方法hook内核函数
+
+并且重写了调试链函数
+
+```
+NtDebugActiveProcess
+DbgkpQueueMessage
+KiDispatchException
+DebugActiveProcess
+DbgUixxx
+```
+
+## 调试原理
+
+了解调试原理才能做检测或构建自己的调试链
+
+从0开始编写简易调试器 https://bbs.kanxue.com/thread-276162.htm
 
 ## 参考资料 Ref
 

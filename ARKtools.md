@@ -86,3 +86,11 @@ https://github.com/AngleHony/WKTools
 http://www.m5home.com/bbs/thread-6975-1-1.html
 
 https://bbs.kafan.cn/thread-1426416-1-1.html
+
+
+
+## PPLcontrol
+
+https://github.com/itm4n/PPLcontrol
+
+检测PPL进程，或设置任意进程为PPL权限

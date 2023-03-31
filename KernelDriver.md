@@ -248,6 +248,18 @@ DbgBreakPoint();
 
 **DbgPrint的信息还可以在DebugView 中查看** (勾选Capture Kernel)
 
+## 其他双机调试
+
+### VDK
+
+https://github.com/4d61726b/VirtualKD-Redux
+
+[VirtualKD-Redux/Tutorial.md](https://github.com/4d61726b/VirtualKD-Redux/blob/master/VirtualKD-Redux/Docs/Tutorial.md)
+
+### BugChecker
+
+https://github.com/vitoplantamura/BugChecker
+
 ## WDK
 
 [下载 Windows 驱动程序工具包 (WDK) - Windows drivers | Microsoft Learn](https://learn.microsoft.com/zh-cn/windows-hardware/drivers/download-the-wdk)
