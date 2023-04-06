@@ -202,6 +202,28 @@ bool Check()
 
 
 
+### PEB
+
+直接检测PEB中的标识
+
+#### BeingDebugged
+
+和IsDebuggerPresent等价
+
+```c++
+bool Check() {
+    bool bDebugged = false;
+    __asm {
+        MOV EAX, DWORD PTR FS : [0x30]
+            MOV AL, BYTE PTR DS : [EAX + 2]
+            MOV bDebugged, AL
+    }
+    return bDebugged;
+}
+```
+
+https://zhuanlan.zhihu.com/p/57329235
+
 ## 对象句柄 Object Handles
 
 接受内核对象句柄作为参数的WinAPI函数在调试时可能会有不同的行为，或者会**因为调试器的实现而产生副作用**
@@ -402,6 +424,54 @@ NtQueryObject_Cleanup:
 
 
 
+## 异常处理
+
+### int 0x2d
+
+32位
+
+```c
+bool IsDebugged() {
+    __try {
+        __asm {
+            xor eax, eax
+            int 0x2d
+            nop
+        }
+        return true;
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER) {
+        return false;
+    }
+}
+```
+
+另一种形式，隐藏Int指令
+
+```c
+typedef ULONG(WINAPI* NtDbgPrint)(PCSTR Format, ...);
+NtDbgPrint      m_NtDbgPrint;
+BOOL InitNtFuncs() {
+    HMODULE h_module = GetModuleHandle(TEXT("ntdll.dll"));
+    if (!h_module)return FALSE;
+    m_NtDbgPrint = (NtDbgPrint)GetProcAddress(h_module, "DbgPrint");
+    return TRUE;
+}
+bool IsDebugged2() {
+    __try {
+        m_NtDbgPrint("Hello");
+        return true;
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER) {
+        return false;
+    }
+}
+```
+
+
+
+
+
 ## 线程操作  Thread
 
 ### ZwCreateThreadEx
@@ -413,6 +483,14 @@ https://pastebin.com/jAv5GYUd
 ```c
 ZwCreateThreadEx(&hThread,0x1FFFFF,0,GetCurrentProcess(),&dummy,0, 0x4/*HiddenFromDebugger*/,0,0x1000,0x10000,0);
 ```
+
+
+
+## CSRSS
+
+[Microsoft Windows System Call Table (XP/2003/Vista/2008/7/2012/8/10) (vexillium.org)](https://j00ru.vexillium.org/syscalls/nt/64/)
+
+[Windows CSRSS API Function List (NT/2000/XP/2003/Vista/2008/7/2012/8) (vexillium.org)](https://j00ru.vexillium.org/csrss_list/api_list.html)
 
 
 
@@ -647,8 +725,20 @@ DbgUixxx
 
 ## 参考资料 Ref
 
+[waliedassar: Wow64-Specific Anti-Debug Trick](http://waleedassar.blogspot.com/2013/01/wow64-specific-anti-debug-trick.html)
+
+[Waliedassar's Pastebin](https://pastebin.com/u/waliedassar)
+
 [CHECK POINT RESEARCH](https://anti-debug.checkpoint.com/)
 
 [CTF-Wiki: 反调试技术](https://ctf-wiki.org/reverse/windows/anti-debug/)
 
 [Revercc's Blog: Windows反调试技术](https://www.cnblogs.com/revercc/p/13721197.html)
+
+[LordNoteworthy/al-khaser](https://github.com/LordNoteworthy/al-khaser/tree/master/al-khaser)
+
+https://www.anquanke.com/post/id/176532
+
+https://song-10.gitee.io/2021/08/08/Reverse-2021-08-08-anti-debug
+
+[Windows下反（反）调试技术汇总 | 天融信阿尔法实验室 (topsec.com.cn)](http://blog.topsec.com.cn/windows下反（反）调试技术汇总/)

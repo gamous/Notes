@@ -328,7 +328,7 @@ Msys
 
 理解windows内核——驱动开发 https://www.anquanke.com/post/id/262435
 
-
+[MSR_HOOK - Note (gitbook.io)](https://b0ldfrev.gitbook.io/note/windows_kernel/msr_hook)
 
 ## WINDBG
 
