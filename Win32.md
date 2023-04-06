@@ -2,6 +2,14 @@
 
 记录一点常用的win32api
 
+https://www.geoffchappell.com/studies/windows/km/ntoskrnl
+
+[基于断链的DLL隐藏 - idiotc4t's blog](https://idiotc4t.com/defense-evasion/unlink-module-hide)
+
+[深入理解WIN32](https://www.anquanke.com/member.html?memberId=156165)
+
+https://cloud.tencent.com/developer/article/1036207
+
 ## 层次结构
 
 ```
@@ -116,3 +124,12 @@ typedef struct _PROCESS_BASIC_INFORMATION {
 } PROCESS_BASIC_INFORMATION;
 ```
 
+
+
+## Syscall
+
+https://tttang.com/archive/1464/
+
+Microsoft Windows System Call Table (XP/2003/Vista/2008/7/2012/8/10)  https://j00ru.vexillium.org/syscalls/nt/64/
+
+Windows x86-64 WIN32K.SYS System Call Table (XP/2003/Vista/2008/7/2012/8/10) https://j00ru.vexillium.org/syscalls/win32k/64/

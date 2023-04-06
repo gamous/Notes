@@ -203,6 +203,14 @@ int main(){
 
 
 
+[c++实现Windows内存监视 - LightningStar - 博客园 (cnblogs.com)](https://www.cnblogs.com/harrypotterjackson/p/12113387.html)
+
+反内存断点
+
+[ReadProcessMemory As Anti-Memory Breakpoints - Pastebin.com](https://pastebin.com/RCkVDNXJ)
+
+
+
 ## AntiCE
 
 通过对ReadDirectoryChangesW
@@ -214,6 +222,10 @@ https://github.com/gmh5225/Detection-CheatEngine
 ## AntiMemoryMoniter
 
 https://bbs.kanxue.com/thread-153736.htm
+
+ReadProcessMemory读取自进程 可以避免被监控
+
+先map后读取
 
 
 

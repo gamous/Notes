@@ -45,7 +45,7 @@ bool Check(){
 
 ### NtQueryInformationProcess
 
-函数：`ntdll!NtQueryInformationProcess` (MS未公开)
+函数：`ntdll!NtQueryInformationProcess` (MS未公开) [NTAPI Undoc](http://undocumented.ntinternals.net/index.html?page=UserMode%2FUndocumented Functions%2FNT Objects%2FThread%2FNtSetInformationThread.html)
 
 原理：查询内核`EPROCESS`结构体的调试信息
 
@@ -63,6 +63,15 @@ if (hNtdll){
         hNtdll, "NtQueryInformationProcess");
 }
 ```
+
+```
+#define ThreadHideFromDebugger 0x11
+#define ProcessDebugPort   0x7
+#define ProcessDebugObjectHandle 0x1E
+#define ProcessDebugFlags 0x1F
+```
+
+
 
 #### ProcessDebugPort (7)
 
@@ -127,7 +136,7 @@ bool Check(){
 
 ### NtQuerySystemInformation
 
-函数：`ntdll!NtQuerySystemInformation`
+函数：`ntdll!NtQuerySystemInformation` 
 
 ```c
 NTSYSCALLAPI NTSTATUS NTAPI NtQuerySystemInformation(
@@ -166,6 +175,104 @@ bool Check(){
 }
 ```
 
+#### ZwQueryInformationProcess
+
+```c++
+extern "C" int __stdcall ZwQueryInformationProcess(HANDLE,int,unsigned long*,unsigned long,unsigned long*);
+bool Check(){
+	unsigned long _port_=0;
+	ZwQueryInformationProcess(GetCurrentProcess(),ProcessDebugPort,&_port_,0x4,0);
+	if(_port_)return true;
+    
+	unsigned long DbgObjHand=0;
+	int ret=ZwQueryInformationProcess(GetCurrentProcess(),ProcessDebugObjectHandle,&DbgObjHand,0x4,0);
+	if(ret>=0 || DbgObjHand)return true;
+    
+    unsigned long DbgFlags=0;
+    ZwQueryInformationProcess(GetCurrentProcess(),ProcessDebugFlags,&DbgFlags,0x4,0);
+    if(DbgFlags==0)return true;
+}
+```
+
+
+
+### ThreadNtSetInformationThread 
+
+ `_ETHREAD->HideFromDebugger & ThreadHideFromDebugger `
+
+设置了ThreadHideFromDebugger的线程不会发送调试事件
+
+#### NtSetInformationThread
+
+```c++
+typedef NTSTATUS (NTAPI *pfnNtSetInformationThread)(
+    _In_ HANDLE ThreadHandle,
+    _In_ ULONG  ThreadInformationClass,
+    _In_ PVOID  ThreadInformation,
+    _In_ ULONG  ThreadInformationLength
+    );
+const ULONG ThreadHideFromDebugger = 0x11;
+void HideFromDebugger()
+{
+    HMODULE hNtDll = LoadLibrary(TEXT("ntdll.dll"));
+    pfnNtSetInformationThread NtSetInformationThread = (pfnNtSetInformationThread)
+        GetProcAddress(hNtDll, "NtSetInformationThread");
+    NTSTATUS status = NtSetInformationThread(GetCurrentThread(), 
+        ThreadHideFromDebugger, NULL, 0);
+}	
+```
+
+#### ZwSetInformationThread
+
+```c++
+#define ThreadHideFromDebugger 0x11
+extern "C"
+{
+       int __stdcall ZwSetInformationThread(HANDLE,int,unsigned long*,unsigned long);
+}
+ZwSetInformationThread(GetCurrentThread(),ThreadHideFromDebugger,0,0);
+```
+
+#### ZwCreateThreadEx
+
+https://pastebin.com/jAv5GYUd
+
+直接使用`ZwCreateThreadEx`创建调试器不可见进程
+
+```c
+struct UNICODE_S{
+    unsigned short len;
+    unsigned short max;
+    wchar_t* pStr;
+};
+struct OBJECT_ATTRIBUTES{
+  unsigned long           Length;
+  HANDLE                  RootDirectory;
+  UNICODE_S*              ObjectName;
+  unsigned long           Attributes;
+  void*           SecurityDescriptor;
+  void*           SecurityQualityOfService;
+};
+ 
+typedef int(__stdcall *pfnZwCreateThreadEx)(HANDLE* hThread,int DesiredAccess,OBJECT_ATTRIBUTES* ObjectAttributes,HANDLE ProcessHandle,void* lpStartAddress,void* lpParameter,unsigned long CreateSuspended_Flags,unsigned long StackZeroBits,unsigned long SizeOfStackCommit,unsigned long SizeOfStackReserve,void* lpBytesBuffer);
+pfnZwCreateThreadEx ZwCreateThreadEx=(pfnZwCreateThreadEx)GetProcAddress(GetModuleHandle("ntdll.dll"),"ZwCreateThreadEx");
+    if(ZwCreateThreadEx){
+        HANDLE hThread=0;
+        ZwCreateThreadEx(&hThread,0x1FFFFF,0,GetCurrentProcess(),&dummy,0,0x4/*HiddenFromDebugger*/,0,0x1000,0x10000,0);
+        if(hThread)WaitForSingleObject(hThread,INFINITE);
+    }
+```
+
+
+
+
+
+### RtlIsAnyDebuggerPresent
+
+函数：`ntdll!RtlIsAnyDebuggerPresent`
+
+检查`PEB->IsBeingDebugged`和`KUSER_SHARED_DATA->KdDebuggerEnabled`
+
 
 
 ### RtlQueryProcessHeapInformation
@@ -202,9 +309,219 @@ bool Check()
 
 
 
-### PEB
+### PEB checks
 
 直接检测PEB中的标识
+
+#### 结构体
+
+```c
+typedef struct _PEB
+{
+    BOOLEAN InheritedAddressSpace;
+    BOOLEAN ReadImageFileExecOptions;
+    BOOLEAN BeingDebugged;
+    union
+    {
+        BOOLEAN BitField;
+        struct
+        {
+            BOOLEAN ImageUsesLargePages : 1;
+            BOOLEAN IsProtectedProcess : 1;
+            BOOLEAN IsImageDynamicallyRelocated : 1;
+            BOOLEAN SkipPatchingUser32Forwarders : 1;
+            BOOLEAN IsPackagedProcess : 1;
+            BOOLEAN IsAppContainer : 1;
+            BOOLEAN IsProtectedProcessLight : 1;
+            BOOLEAN IsLongPathAwareProcess : 1;
+        } s1;
+    } u1;
+ 
+    HANDLE Mutant;
+ 
+    PVOID ImageBaseAddress;
+    PPEB_LDR_DATA Ldr;
+    PRTL_USER_PROCESS_PARAMETERS ProcessParameters;
+    PVOID SubSystemData;
+    PVOID ProcessHeap;
+    PRTL_CRITICAL_SECTION FastPebLock;
+    PVOID AtlThunkSListPtr;
+    PVOID IFEOKey;
+    union
+    {
+        ULONG CrossProcessFlags;
+        struct
+        {
+            ULONG ProcessInJob : 1;
+            ULONG ProcessInitializing : 1;
+            ULONG ProcessUsingVEH : 1;
+            ULONG ProcessUsingVCH : 1;
+            ULONG ProcessUsingFTH : 1;
+            ULONG ProcessPreviouslyThrottled : 1;
+            ULONG ProcessCurrentlyThrottled : 1;
+            ULONG ReservedBits0 : 25;
+        } s2;
+    } u2;
+    union
+    {
+        PVOID KernelCallbackTable;
+        PVOID UserSharedInfoPtr;
+    } u3;
+    ULONG SystemReserved[1];
+    ULONG AtlThunkSListPtr32;
+    PVOID ApiSetMap;
+    ULONG TlsExpansionCounter;
+    PVOID TlsBitmap;
+    ULONG TlsBitmapBits[2];
+    PVOID ReadOnlySharedMemoryBase;
+    PVOID HotpatchInformation;
+    PVOID *ReadOnlyStaticServerData;
+    PVOID AnsiCodePageData;
+    PVOID OemCodePageData;
+    PVOID UnicodeCaseTableData;
+ 
+    ULONG NumberOfProcessors;
+    ULONG NtGlobalFlag;
+ 
+    LARGE_INTEGER CriticalSectionTimeout;
+    SIZE_T HeapSegmentReserve;
+    SIZE_T HeapSegmentCommit;
+    SIZE_T HeapDeCommitTotalFreeThreshold;
+    SIZE_T HeapDeCommitFreeBlockThreshold;
+ 
+    ULONG NumberOfHeaps;
+    ULONG MaximumNumberOfHeaps;
+    PVOID *ProcessHeaps;
+ 
+    PVOID GdiSharedHandleTable;
+    PVOID ProcessStarterHelper;
+    ULONG GdiDCAttributeList;
+ 
+    PRTL_CRITICAL_SECTION LoaderLock;
+ 
+    ULONG OSMajorVersion;
+    ULONG OSMinorVersion;
+    USHORT OSBuildNumber;
+    USHORT OSCSDVersion;
+    ULONG OSPlatformId;
+    ULONG ImageSubsystem;
+    ULONG ImageSubsystemMajorVersion;
+    ULONG ImageSubsystemMinorVersion;
+    ULONG_PTR ActiveProcessAffinityMask;
+    GDI_HANDLE_BUFFER GdiHandleBuffer;
+    PVOID PostProcessInitRoutine;
+ 
+    PVOID TlsExpansionBitmap;
+    ULONG TlsExpansionBitmapBits[32];
+ 
+    ULONG SessionId;
+ 
+    ULARGE_INTEGER AppCompatFlags;
+    ULARGE_INTEGER AppCompatFlagsUser;
+    PVOID pShimData;
+    PVOID AppCompatInfo;
+ 
+    UNICODE_STRING CSDVersion;
+ 
+    PVOID ActivationContextData;
+    PVOID ProcessAssemblyStorageMap;
+    PVOID SystemDefaultActivationContextData;
+    PVOID SystemAssemblyStorageMap;
+ 
+    SIZE_T MinimumStackCommit;
+ 
+    PVOID *FlsCallback;
+    LIST_ENTRY FlsListHead;
+    PVOID FlsBitmap;
+    ULONG FlsBitmapBits[FLS_MAXIMUM_AVAILABLE / (sizeof(ULONG) * 8)];
+    ULONG FlsHighIndex;
+ 
+    PVOID WerRegistrationData;
+    PVOID WerShipAssertPtr;
+    PVOID pContextData;
+    PVOID pImageHeaderHash;
+    union
+    {
+        ULONG TracingFlags;
+        struct
+        {
+            ULONG HeapTracingEnabled : 1;
+            ULONG CritSecTracingEnabled : 1;
+            ULONG LibLoaderTracingEnabled : 1;
+            ULONG SpareTracingBits : 29;
+        } s3;
+    } u4;
+    ULONGLONG CsrServerReadOnlySharedMemoryBase;
+    PVOID TppWorkerpListLock;
+    LIST_ENTRY TppWorkerpList;
+    PVOID WaitOnAddressHashTable[128];
+} PEB, *PPEB;
+```
+
+##### 获取进程PEB地址 x32/x64
+
+```c++
+PVOID GetPEB(){
+#ifdef _WIN64
+    return (PVOID)__readgsqword(0x0C * sizeof(PVOID)); //gs:0x60
+#else
+    return (PVOID)__readfsdword(0x0C * sizeof(PVOID)); //fs:0x30
+#endif
+}
+```
+
+##### 获取进程PEB地址WOW64
+
+windows系统通过wow64机制在x64上运行x32程序，这会导致两个PEB结构产生，一个是32位的，一个是64位的，通过下面的方法可以获取到WOW64下64位的PEB
+
+```c++
+PVOID GetPEB64(){
+    PVOID pPeb = 0;
+#ifndef _WIN64
+    // 1. WOW64下的进程存在两个 PEB - PEB64 和 PEB32 
+    // 2. PEB64 在 PEB32 之后
+    //如果版本大于 Windows8 才需要获取真实 PEB64
+    if (IsWin8OrHigher()){
+        BOOL isWow64 = FALSE;
+        typedef BOOL(WINAPI *pfnIsWow64Process)(HANDLE hProcess, PBOOL isWow64);
+        pfnIsWow64Process fnIsWow64Process = (pfnIsWow64Process)GetProcAddress(GetModuleHandleA("Kernel32.dll"), "IsWow64Process");
+        //通过 Kernel32.dll!IsWow64Process 判断是否wow64
+        if (fnIsWow64Process(GetCurrentProcess(), &isWow64)){
+            if (isWow64){
+                //定位到PEB32
+                pPeb = (PVOID)__readfsdword(0x0C * sizeof(PVOID));
+                //定位到PEB32后的PEB64
+                pPeb = (PVOID)((PBYTE)pPeb + 0x1000);
+            }
+        }
+    }
+#endif
+    return pPeb;
+}
+```
+
+##### 获得其他进程PEB地址
+
+```c++
+GetPebAddress(HANDLE hProcess){
+::PROCESS_BASIC_INFORMATION pbi = { 0 };
+auto status = NtQueryInformationProcess(hProcess, ProcessBasicInformation, &pbi, sizeof(pbi), nullptr);
+return NT_SUCCESS(status) ? (PEB *)pbi.PebBaseAddress : nullptr;
+}
+```
+
+##### 检查系统信息
+
+```c++
+WORD GetVersionWord()
+{
+    OSVERSIONINFO verInfo = { sizeof(OSVERSIONINFO) };
+    GetVersionEx(&verInfo);
+    return MAKEWORD(verInfo.dwMinorVersion, verInfo.dwMajorVersion);
+}
+BOOL IsWin8OrHigher() { return GetVersionWord() >= _WIN32_WINNT_WIN8; }
+BOOL IsVistaOrHigher() { return GetVersionWord() >= _WIN32_WINNT_VISTA; }	
+```
 
 #### BeingDebugged
 
@@ -212,17 +529,188 @@ bool Check()
 
 ```c++
 bool Check() {
-    bool bDebugged = false;
-    __asm {
-        MOV EAX, DWORD PTR FS : [0x30]
-            MOV AL, BYTE PTR DS : [EAX + 2]
-            MOV bDebugged, AL
-    }
-    return bDebugged;
+    pPeb=GetPEB();
+	if (pPeb->BeingDebugged)return true;
+    return false;
 }
 ```
 
-https://zhuanlan.zhihu.com/p/57329235
+#### NtGlobalFlag
+
+被调试时，NtGlobalFlag的这三个标志被设置
+
+```c
+#define FLG_HEAP_ENABLE_TAIL_CHECK   0x10
+#define FLG_HEAP_ENABLE_FREE_CHECK   0x20
+#define FLG_HEAP_VALIDATE_PARAMETERS 0x40
+#define NT_GLOBAL_FLAG_DEBUGGED (FLG_HEAP_ENABLE_TAIL_CHECK | FLG_HEAP_ENABLE_FREE_CHECK | FLG_HEAP_VALIDATE_PARAMETERS)
+
+#ifndef _WIN64
+PPEB pPeb = (PPEB)__readfsdword(0x30);
+DWORD dwNtGlobalFlag = *(PDWORD)((PBYTE)pPeb + 0x68);
+#else
+PPEB pPeb = (PPEB)__readgsqword(0x60);
+DWORD dwNtGlobalFlag = *(PDWORD)((PBYTE)pPeb + 0xBC);
+#endif // _WIN64
+ 
+if (dwNtGlobalFlag & NT_GLOBAL_FLAG_DEBUGGED)
+    goto being_debugged;
+```
+
+```c++
+if (pPeb->NtGlobalFlag & 0x70)return true;
+```
+
+#### Heap Flags
+
+PEB中的下述字段包含了堆信息
+
+```c++
+    PVOID ProcessHeap;
+	ULONG NumberOfHeaps;
+    ULONG MaximumNumberOfHeaps;
+    PVOID *ProcessHeaps;
+```
+
+堆首对应结构体`_HEAP`，其中包含有两个受调试器影响的字段 `flags`和`force_flags`
+
+当进程被调试的时候，flags的HEAP_GROWABLE位被清除；ForceFlags被设置为非0值
+
+32位系统上的Flags 
+
+```
+HEAP_GROWABLE (2)
+HEAP_TAIL_CHECKING_ENABLED (0x20)
+HEAP_FREE_CHECKING_ENABLED (0x40)
+HEAP_SKIP_VALIDATION_CHECKS (0x10000000)
+HEAP_VALIDATE_PARAMETERS_ENABLED (0x40000000)
+```
+
+64位系统上Flags 
+
+```
+HEAP_GROWABLE (2)
+HEAP_TAIL_CHECKING_ENABLED (0x20)
+HEAP_FREE_CHECKING_ENABLED (0x40)
+HEAP_VALIDATE_PARAMETERS_ENABLED (0x40000000)
+```
+
+ForceFlags
+
+```
+HEAP_GROWABLE (2)
+HEAP_TAIL_CHECKING_ENABLED (0x20)
+HEAP_FREE_CHECKING_ENABLED (0x40)
+HEAP_VALIDATE_PARAMETERS_ENABLED (0x40000000)
+```
+
+```c++
+int GetHeapFlagsOffset(bool x64)
+{
+    return x64 ?
+        IsVistaOrHigher() ? 0x70 : 0x14: //x64 offsets
+        IsVistaOrHigher() ? 0x40 : 0x0C; //x86 offsets
+}
+int GetHeapForceFlagsOffset(bool x64)
+{
+    return x64 ?
+        IsVistaOrHigher() ? 0x74 : 0x18: //x64 offsets
+        IsVistaOrHigher() ? 0x44 : 0x10; //x86 offsets
+}
+void CheckHeap()
+{
+    PVOID pPeb = GetPEB();
+    PVOID pPeb64 = GetPEB64();
+    PVOID heap = 0;
+    DWORD offsetProcessHeap = 0;
+    PDWORD heapFlagsPtr = 0, heapForceFlagsPtr = 0;
+    BOOL x64 = FALSE;
+#ifdef _WIN64
+    x64 = TRUE;
+    offsetProcessHeap = 0x30;
+#else
+    offsetProcessHeap = 0x18;
+#endif
+    heap = (PVOID)*(PDWORD_PTR)((PBYTE)pPeb + offsetProcessHeap);
+    heapFlagsPtr = (PDWORD)((PBYTE)heap + GetHeapFlagsOffset(x64));
+    heapForceFlagsPtr = (PDWORD)((PBYTE)heap + GetHeapForceFlagsOffset(x64));
+    if (*heapFlagsPtr & ~HEAP_GROWABLE || *heapForceFlagsPtr != 0)return true;
+    if (pPeb64)
+    {
+        heap = (PVOID)*(PDWORD_PTR)((PBYTE)pPeb64 + 0x30);
+        heapFlagsPtr = (PDWORD)((PBYTE)heap + GetHeapFlagsOffset(true));
+        heapForceFlagsPtr = (PDWORD)((PBYTE)heap + GetHeapForceFlagsOffset(true));
+        if (*heapFlagsPtr & ~HEAP_GROWABLE || *heapForceFlagsPtr != 0)return true;
+    }
+    return false;
+}
+```
+
+#### Heap Protection
+
+根据Heap Flags，堆分配会有一些额外的行为
+
+如果 HEAP_TAIL_CHECKING_ENABLED (0x20) 被设置，堆块尾部会追加`0xABABABAB ABABABAB` (两个PVOID的长度)
+
+如果 HEAP_FREE_CHECKING_ENABLED (0x40) 被设置，堆块的对齐字节填充追加`0xFEEEFEEE`
+
+```c++
+bool Check(){
+    PROCESS_HEAP_ENTRY HeapEntry = { 0 };
+    do{
+        if (!HeapWalk(GetProcessHeap(), &HeapEntry))
+            return false;
+    } while (HeapEntry.wFlags != PROCESS_HEAP_ENTRY_BUSY);
+    PVOID pOverlapped = (PBYTE)HeapEntry.lpData + HeapEntry.cbData;
+    return ((DWORD)(*(PDWORD)pOverlapped) == 0xABABABAB);
+}
+```
+
+#### Back BeingDebugged
+
+PEB中的BeingDebugged被设为True时导致了后续的变化
+
+- NtGlobalFlag
+- RtlCreateHeap中的堆创建方法变为RtlDebugCreateHeap
+  -  Heap Flags
+  - Heap Protection
+
+如果在上述变化发生前就修改BeingDebugged即可避免这些特征产生并被检测
+
+**但是如果把BeingDebugged设为False，就不会在系统断点处触发中断了**
+
+因此需要在特定的时机修改BeingDebugged
+
+| DebugEventCode        | Count | PEB BeingDebugged | Note                 |
+| --------------------- | ----- | ----------------- | -------------------- |
+| LOAD_DLL_DEBUG_EVENT  | 0     | FALSE             |                      |
+| LOAD_DLL_DEBUG_EVENT  | 1     | TRUE              |                      |
+| EXCEPTION_DEBUG_EVENT | 0     | FALSE             | EXCEPTION_BREAKPOINT |
+
+#### KUSER_SHARED_DATA
+
+kuser_shared_data是一个用户态和内核态共享的结构体，用户态只有读的权限
+
+该结构和内核相关，具有稳定的地址和结构体偏移（x64和x86相同）
+
+其中和debug相关的值为`kuser_shared_data->KdDebuggerEnabled`，该值存在时说明内核调试器存在，**3环的调试器并不会导致这个值变化**
+
+由于SoftICE的内核调试机制是自己实现的，未使用Windows原生的内核调试机制，因此也不会导致这个值变化
+
+| Offset | Definition                   | Versions       | Remarks            |
+| :----- | :--------------------------- | :------------- | :----------------- |
+| 0x02D4 | `BOOLEAN KdDebuggerEnabled;` | 5.0 and higher | last member in 5.0 |
+
+```c++
+bool check_kuser_shared_data_structure(){
+    unsigned char b = *(unsigned char*)0x7ffe0000 + 0x2d4;
+    return ((b & 0x01) || (b & 0x02));
+}
+```
+
+
+
+
 
 ## 对象句柄 Object Handles
 
@@ -426,7 +914,11 @@ NtQueryObject_Cleanup:
 
 ## 异常处理
 
-### int 0x2d
+### INT 2D
+
+int2d是系统调试服务使用的向量，在ring3下使用时会产生异常，但如果存在调试器则不会进入异常
+
+同时，可以用于检测ring0下的SoftICE
 
 32位
 
@@ -446,20 +938,37 @@ bool IsDebugged() {
 }
 ```
 
-另一种形式，隐藏Int指令
+#### DbgPrint/DbgPrompt
+
+仅限于**Wow64**下的一个方法
+
+可以隐藏直接的指令
 
 ```c
-typedef ULONG(WINAPI* NtDbgPrint)(PCSTR Format, ...);
-NtDbgPrint      m_NtDbgPrint;
+typedef ULONG(WINAPI* pfnNtDbgPrint)(PCSTR Format, ...);
+typedef ULONG(WINAPI* pfnNtDbgPrompt)(PCCH Prompt, PCH Response, ULONG Length);
+pfnNtDbgPrint      DbgPrint;
+pfnNtDbgPrompt     DbgPrompt;
 BOOL InitNtFuncs() {
     HMODULE h_module = GetModuleHandle(TEXT("ntdll.dll"));
     if (!h_module)return FALSE;
-    m_NtDbgPrint = (NtDbgPrint)GetProcAddress(h_module, "DbgPrint");
+    DbgPrint  = (pfnNtDbgPrint)GetProcAddress(h_module, "DbgPrint");
+    DbgPrompt = (pfnNtDbgPrompt)GetProcAddress(h_module, "DbgPrompt");
     return TRUE;
 }
-bool IsDebugged2() {
+bool IsDebugged1() {
     __try {
-        m_NtDbgPrint("Hello");
+        DbgPrint("Hello");
+        return true;
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER) {
+        return false;
+    }
+}
+bool IsDebugged2() {
+    unsigned char* resp=(unsigned char*)LocalAlloc(LMEM_ZEROINIT,0x100);
+    __try {
+        DbgPrompt(L"World",resp,0x100);
         return true;
     }
     __except (EXCEPTION_EXECUTE_HANDLER) {
@@ -468,21 +977,58 @@ bool IsDebugged2() {
 }
 ```
 
+### INT  01
 
+#### TrapFlag
 
+通过主动设置TrapFlag的值 触发单步异常，如果调试器捕获异常则被调试
 
-
-## 线程操作  Thread
-
-### ZwCreateThreadEx
-
-https://pastebin.com/jAv5GYUd
-
-直接使用`ZwCreateThreadEx`创建调试器不可见进程
-
-```c
-ZwCreateThreadEx(&hThread,0x1FFFFF,0,GetCurrentProcess(),&dummy,0, 0x4/*HiddenFromDebugger*/,0,0x1000,0x10000,0);
+```c++
+BOOL isDebugged = TRUE;
+__try
+{
+    __asm
+    {
+        pushfd
+        or dword ptr[esp], 0x100 // set the Trap Flag 
+        popfd                    // Load the value into EFLAGS register
+        nop
+    }
+}
+__except (EXCEPTION_EXECUTE_HANDLER)
+{
+    // If an exception has been raised – debugger is not present
+    isDebugged = FALSE;
+}
+if (isDebugged)
+{
+    std::cout << "Stop debugging program!" << std::endl;
+    exit(-1);
+}
 ```
+
+
+
+
+
+## 进程内存
+
+从线程上下文中检查DR寄存器
+
+```cpp
+bool IsDebugged(){
+    CONTEXT ctx;
+    ZeroMemory(&ctx, sizeof(CONTEXT)); 
+    ctx.ContextFlags = CONTEXT_DEBUG_REGISTERS; 
+    if(!GetThreadContext(GetCurrentThread(), &ctx))
+        return false;
+    return ctx.Dr0 || ctx.Dr1 || ctx.Dr2 || ctx.Dr3;
+}
+```
+
+
+
+[waliedassar: ShareCount As Anti-Debugging Trick (waleedassar.blogspot.com)](http://waleedassar.blogspot.com/2014/06/sharecount-as-anti-debugging-trick.html)
 
 
 
@@ -508,166 +1054,7 @@ https://github.com/Kwansy98/EasyPdb
 
 下载并解析
 
-## 相关结构体
-
-### PEB
-
-调试
-
-```
-PEB
-{
-	BeingDebugger:1
-	NtGlobalFlag:0x70
-	HeapFlags:=2 offset (x32) 0x40!=2 则被调试状态 0x70!=0则被调试状态
-	ForceFlags:=0 offset (x32)0x44!=2 则被调试状态 0x74
-}
-```
-
-
-
-```c
-typedef struct _PEB
-{
-    BOOLEAN InheritedAddressSpace;
-    BOOLEAN ReadImageFileExecOptions;
-    BOOLEAN BeingDebugged;
-    union
-    {
-        BOOLEAN BitField;
-        struct
-        {
-            BOOLEAN ImageUsesLargePages : 1;
-            BOOLEAN IsProtectedProcess : 1;
-            BOOLEAN IsImageDynamicallyRelocated : 1;
-            BOOLEAN SkipPatchingUser32Forwarders : 1;
-            BOOLEAN IsPackagedProcess : 1;
-            BOOLEAN IsAppContainer : 1;
-            BOOLEAN IsProtectedProcessLight : 1;
-            BOOLEAN IsLongPathAwareProcess : 1;
-        } s1;
-    } u1;
- 
-    HANDLE Mutant;
- 
-    PVOID ImageBaseAddress;
-    PPEB_LDR_DATA Ldr;
-    PRTL_USER_PROCESS_PARAMETERS ProcessParameters;
-    PVOID SubSystemData;
-    PVOID ProcessHeap;
-    PRTL_CRITICAL_SECTION FastPebLock;
-    PVOID AtlThunkSListPtr;
-    PVOID IFEOKey;
-    union
-    {
-        ULONG CrossProcessFlags;
-        struct
-        {
-            ULONG ProcessInJob : 1;
-            ULONG ProcessInitializing : 1;
-            ULONG ProcessUsingVEH : 1;
-            ULONG ProcessUsingVCH : 1;
-            ULONG ProcessUsingFTH : 1;
-            ULONG ProcessPreviouslyThrottled : 1;
-            ULONG ProcessCurrentlyThrottled : 1;
-            ULONG ReservedBits0 : 25;
-        } s2;
-    } u2;
-    union
-    {
-        PVOID KernelCallbackTable;
-        PVOID UserSharedInfoPtr;
-    } u3;
-    ULONG SystemReserved[1];
-    ULONG AtlThunkSListPtr32;
-    PVOID ApiSetMap;
-    ULONG TlsExpansionCounter;
-    PVOID TlsBitmap;
-    ULONG TlsBitmapBits[2];
-    PVOID ReadOnlySharedMemoryBase;
-    PVOID HotpatchInformation;
-    PVOID *ReadOnlyStaticServerData;
-    PVOID AnsiCodePageData;
-    PVOID OemCodePageData;
-    PVOID UnicodeCaseTableData;
- 
-    ULONG NumberOfProcessors;
-    ULONG NtGlobalFlag;
- 
-    LARGE_INTEGER CriticalSectionTimeout;
-    SIZE_T HeapSegmentReserve;
-    SIZE_T HeapSegmentCommit;
-    SIZE_T HeapDeCommitTotalFreeThreshold;
-    SIZE_T HeapDeCommitFreeBlockThreshold;
- 
-    ULONG NumberOfHeaps;
-    ULONG MaximumNumberOfHeaps;
-    PVOID *ProcessHeaps;
- 
-    PVOID GdiSharedHandleTable;
-    PVOID ProcessStarterHelper;
-    ULONG GdiDCAttributeList;
- 
-    PRTL_CRITICAL_SECTION LoaderLock;
- 
-    ULONG OSMajorVersion;
-    ULONG OSMinorVersion;
-    USHORT OSBuildNumber;
-    USHORT OSCSDVersion;
-    ULONG OSPlatformId;
-    ULONG ImageSubsystem;
-    ULONG ImageSubsystemMajorVersion;
-    ULONG ImageSubsystemMinorVersion;
-    ULONG_PTR ActiveProcessAffinityMask;
-    GDI_HANDLE_BUFFER GdiHandleBuffer;
-    PVOID PostProcessInitRoutine;
- 
-    PVOID TlsExpansionBitmap;
-    ULONG TlsExpansionBitmapBits[32];
- 
-    ULONG SessionId;
- 
-    ULARGE_INTEGER AppCompatFlags;
-    ULARGE_INTEGER AppCompatFlagsUser;
-    PVOID pShimData;
-    PVOID AppCompatInfo;
- 
-    UNICODE_STRING CSDVersion;
- 
-    PVOID ActivationContextData;
-    PVOID ProcessAssemblyStorageMap;
-    PVOID SystemDefaultActivationContextData;
-    PVOID SystemAssemblyStorageMap;
- 
-    SIZE_T MinimumStackCommit;
- 
-    PVOID *FlsCallback;
-    LIST_ENTRY FlsListHead;
-    PVOID FlsBitmap;
-    ULONG FlsBitmapBits[FLS_MAXIMUM_AVAILABLE / (sizeof(ULONG) * 8)];
-    ULONG FlsHighIndex;
- 
-    PVOID WerRegistrationData;
-    PVOID WerShipAssertPtr;
-    PVOID pContextData;
-    PVOID pImageHeaderHash;
-    union
-    {
-        ULONG TracingFlags;
-        struct
-        {
-            ULONG HeapTracingEnabled : 1;
-            ULONG CritSecTracingEnabled : 1;
-            ULONG LibLoaderTracingEnabled : 1;
-            ULONG SpareTracingBits : 29;
-        } s3;
-    } u4;
-    ULONGLONG CsrServerReadOnlySharedMemoryBase;
-    PVOID TppWorkerpListLock;
-    LIST_ENTRY TppWorkerpList;
-    PVOID WaitOnAddressHashTable[128];
-} PEB, *PPEB;
-```
+## 
 
 ## 相关项目
 
@@ -684,6 +1071,10 @@ https://github.com/AdvDebug/AntiCrack-DotNet
 
 
 ## 反反调试工具
+
+### SharpOD
+
+https://bbs.kanxue.com/thread-218988.htm
 
 ### TitanHide
 
@@ -742,3 +1133,17 @@ https://www.anquanke.com/post/id/176532
 https://song-10.gitee.io/2021/08/08/Reverse-2021-08-08-anti-debug
 
 [Windows下反（反）调试技术汇总 | 天融信阿尔法实验室 (topsec.com.cn)](http://blog.topsec.com.cn/windows下反（反）调试技术汇总/)
+
+[Anti-Debug Protection Techniques: Implementation and Neutralization - CodeProject](https://www.codeproject.com/Articles/1090943/Anti-Debug-Protection-Techniques-Implementation-an)
+
+[Windows 平台反调试相关的技术方法总结—part 2 - 先知社区 (aliyun.com)](https://xz.aliyun.com/t/5339#toc-14)
+
+[Windows 平台反调试相关的技术方法总结—part 3 - 先知社区 (aliyun.com)](https://xz.aliyun.com/t/5408)
+
+[利用异常实现反调试 - 活着的虫子 - 博客园 (cnblogs.com)](https://www.cnblogs.com/yilang/p/12039606.html)
+
+[详解反调试技术](https://blog.csdn.net/qq_32400847/article/details/52798050)
+
+[whklhhhh反调试](https://so.csdn.net/so/search?q=反调试&t=blog&u=whklhhhh)
+
+https://github.com/Hipepper/anti_all_in_one

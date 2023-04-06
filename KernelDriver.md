@@ -330,6 +330,8 @@ Msys
 
 [MSR_HOOK - Note (gitbook.io)](https://b0ldfrev.gitbook.io/note/windows_kernel/msr_hook)
 
+[allogic/KSU: The Kernel Script Utility is an x64 Kernel-Mode rootkit written in C. It was designed to disect and intercept process memory flow. (github.com)](https://github.com/allogic/KSU)
+
 ## WINDBG
 
 https://rayanfam.com/topics/pykd-tutorial-part1/

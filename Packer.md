@@ -8,6 +8,12 @@
 
 
 
+## PE
+
+原创\]Win PE系列之PE头解析 https://bbs.kanxue.com/thread-269719.htm
+
+https://bbs.pediy.com/thread-269795.htm
+
 ## PELoader
 
 ### [RunPE-In-Memory](https://github.com/aaaddress1/RunPE-In-Memory)
@@ -29,3 +35,5 @@
 结合实例浅析壳编写的流程与难点-安全客 https://www.anquanke.com/post/id/176980
 
 深入分析PE可执行文件是如何进行加壳和数据混淆的 https://www.anquanke.com/post/id/90173
+
+SEH VM https://gitlab.com/yattering/SEH_based_VM/
