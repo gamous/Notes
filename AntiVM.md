@@ -211,7 +211,9 @@ jmp L0069AFA9
 
 
 
+工具
 
+[hzqst/VmwareHardenedLoader: Vmware Hardened VM detection mitigation loader (anti anti-vm) (github.com)](https://github.com/hzqst/VmwareHardenedLoader)
 
 ## 参考资料 Ref
 

@@ -11,3 +11,7 @@ https://0x666.club/analysis-of-vmp-kernel-anti-debugging/
 ## 工具
 
 https://github.com/woxihuannisja/vmp3-import-fix
+
+[hzqst/VmwareHardenedLoader: Vmware Hardened VM detection mitigation loader (anti anti-vm) (github.com)](https://github.com/hzqst/VmwareHardenedLoader)
+
+[wallds/NoVmpy (github.com)](https://github.com/wallds/NoVmpy)

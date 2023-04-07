@@ -53,6 +53,30 @@ Push EFLAGS
 
 https://bbs.kanxue.com/thread-270359.htm
 
+```c
+bool IsDebugged(){
+    __try{
+        __asm{
+            pushfd
+            mov dword ptr [esp], 0x100
+            popfd
+            nop
+        }
+        return true;
+    }
+    __except(GetExceptionCode() == EXCEPTION_SINGLE_STEP
+        ? EXCEPTION_EXECUTE_HANDLER
+        : EXCEPTION_CONTINUE_EXECUTION)
+    {
+        return false;
+    }
+}
+```
+
+
+
+
+
 ### 重复前缀
 
 | **指令**    | **数值** |
@@ -82,11 +106,30 @@ int main(int argc, char* argv[]){
 }
 ```
 
+
+
+```c++
+bool IsDebugged(){
+    __try{
+        // 0xF3 0x64 disassembles as PREFIX REP:
+        __asm __emit 0xF3
+        __asm __emit 0x64
+        // One byte INT 1
+        __asm __emit 0xF1
+        return true;
+    }__except (EXCEPTION_EXECUTE_HANDLER){
+        return false;
+    }
+}
+```
+
+
+
 ### 宽度前缀
 
-该前缀指令的作用是可以改变地址计算时候的宽度
+该前缀指令的作用是可以改变地址计算时候的宽度，来绕过部分调试器单步执行时对TF标志的处理
 
-部分调试器处理67指令前缀时存在问题，单步运行时pushfd会被实际执行，反之不会
+指令宽度发生变化，只压入eflags的低位
 
 ```c++
 #include "windows.h"
@@ -101,17 +144,19 @@ int main(int argc, char* argv[]){
         __emit 0x67
         __emit 0x67
         pushfd
-        xor ebx,ecx
         push bx
         pop eax
-        shr eax,0x10
-        mov eflags,eax
+        shr eax, 0x10
+        mov eflags, eax
+        pop bx;
     }
     if(eflags&0x100)    printf("Being traced\r\n");
     else                printf("Expected behavior\r\n");
     return 0;
 }
 ```
+
+
 
 
 
@@ -194,8 +239,6 @@ void main()
 ```
 
 [RE: 2 anti-tracing mechanisms specific to windows x64 (everdox.blogspot.com)](http://everdox.blogspot.com/2013/03/2-anti-tracing-mechanisms-specific-to.html)
-
-
 
 [PspSetContext Anti-Tracing Trick - Pastebin.com](https://pastebin.com/5iRb3tBZ)
 
