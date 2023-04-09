@@ -10,6 +10,10 @@ https://www.geoffchappell.com/studies/windows/km/ntoskrnl
 
 https://cloud.tencent.com/developer/article/1036207
 
+https://github.com/MicrosoftDocs/win32
+
+https://github.com/ranni0225/WRK/tree/main/WRK-V1.2
+
 ## 层次结构
 
 ```

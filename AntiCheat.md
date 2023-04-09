@@ -217,6 +217,10 @@ int main(){
 
 https://github.com/gmh5225/Detection-CheatEngine
 
+通过debugoutput
+
+https://github.com/weak1337/CEDetector/blob/main/CEDetector/ce_detection.cpp
+
 
 
 ## AntiMemoryMoniter

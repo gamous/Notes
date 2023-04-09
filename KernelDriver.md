@@ -136,6 +136,10 @@ https://github.com/9176324/Shark
 
 **运行时直接关闭PG的黑科技，配合其他工具非常好用**
 
+### PatchGuardBypass
+
+https://github.com/AdamOron/PatchGuardBypass
+
 ## WindowsDefender
 
 在虚拟机里经常需要关掉WD防止乱删测试文件
@@ -248,6 +252,10 @@ DbgBreakPoint();
 
 **DbgPrint的信息还可以在DebugView 中查看** (勾选Capture Kernel)
 
+更好用的DebugViewPP
+
+https://github.com/CobaltFusion/DebugViewPP
+
 ## 其他双机调试
 
 ### VDK
@@ -331,6 +339,8 @@ Msys
 [MSR_HOOK - Note (gitbook.io)](https://b0ldfrev.gitbook.io/note/windows_kernel/msr_hook)
 
 [allogic/KSU: The Kernel Script Utility is an x64 Kernel-Mode rootkit written in C. It was designed to disect and intercept process memory flow. (github.com)](https://github.com/allogic/KSU)
+
+https://bbs.kanxue.com/thread-271211.htm
 
 ## WINDBG
 

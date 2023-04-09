@@ -1096,6 +1096,8 @@ https://github.com/Air14/HyperHide
 
 https://github.com/DragonQuestHero/Kernel-Anit-Anit-Debug-Plugins
 
+只能在特定win7下运行
+
 通过多种方法hook内核函数
 
 并且重写了调试链函数
@@ -1107,6 +1109,22 @@ KiDispatchException
 DebugActiveProcess
 DbgUixxx
 ```
+
+### vt-ReloadDbg
+
+https://github.com/xyddnljydd/vt-ReloadDbg
+
+部分重写调试
+
+### driver_callback_bypass_1909
+
+https://github.com/FiYHer/driver_callback_bypass_1909
+
+运行在1909系统
+
+移除各种内核回调
+
+
 
 ## 调试原理
 

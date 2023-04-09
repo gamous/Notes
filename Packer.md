@@ -37,3 +37,18 @@ https://bbs.pediy.com/thread-269795.htm
 深入分析PE可执行文件是如何进行加壳和数据混淆的 https://www.anquanke.com/post/id/90173
 
 SEH VM https://gitlab.com/yattering/SEH_based_VM/
+
+
+
+## 混淆壳
+
+### Alcatraz
+
+https://github.com/weak1337/Alcatraz
+
+### XOR
+
+https://github.com/tmenochet/XorPacker
+
+利用golang二次编译来混淆
+

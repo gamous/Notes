@@ -1,5 +1,9 @@
 # AntiVM
 
+反虚拟化的思路主要有三种 直接从相关信息识别、虚拟机和实体机的运行差异、使用信息间接判断
+
+
+
 ## CPUID
 
 原理：`cpuid 1`指令执行后，EAX的31位代表hypervisor
@@ -137,7 +141,7 @@ bool CheckCPU(){
 
 ```
 
-## 过检测
+## 壳检测
 
 ### VMProtect
 
@@ -173,10 +177,6 @@ cmp byte ptr ds:[eax+ecx+8],73
 ;Parallels
 ```
 
-https://github.com/woxihuannisja/bypass_vmp_vm_detect
-
-
-
 ### SafeEngine
 
 ```
@@ -209,11 +209,45 @@ push esi
 jmp L0069AFA9
 ```
 
+## 工具
+
+### VMX设置
+
+```
+hypervisor.cpuid.v0 = "FALSE"
+board-id.reflectHost = "TRUE"
+hw.model.reflectHost = "TRUE"
+serialNumber.reflectHost = "TRUE"
+smbios.reflectHost = "TRUE"
+SMBIOS.noOEMStrings = "TRUE"
+isolation.tools.getPtrLocation.disable = "TRUE"
+isolation.tools.setPtrLocation.disable = "TRUE"
+isolation.tools.setVersion.disable = "TRUE"
+isolation.tools.getVersion.disable = "TRUE"
+monitor_control.disable_directexec = "TRUE"
+monitor_control.disable_chksimd = "TRUE"
+monitor_control.disable_ntreloc = "TRUE"
+monitor_control.disable_selfmod = "TRUE"
+monitor_control.disable_reloc = "TRUE"
+monitor_control.disable_btinout = "TRUE"
+monitor_control.disable_btmemspace = "TRUE"
+monitor_control.disable_btpriv = "TRUE"
+monitor_control.disable_btseg = "TRUE"
+monitor_control.restrict_backdoor = "TRUE"、
+
+scsi0:0.productID = "Tencent SSD"
+scsi0:0.vendorID = "Tencent"
+
+ethernet0.address = "00:11:56:20:D2:E9"
+```
+
+### VmwareHardenedLoader
+
+https://github.com/hzqst/VmwareHardenedLoader
+
+使用驱动从系统信息中去除VMware相关特征
 
 
-工具
-
-[hzqst/VmwareHardenedLoader: Vmware Hardened VM detection mitigation loader (anti anti-vm) (github.com)](https://github.com/hzqst/VmwareHardenedLoader)
 
 ## 参考资料 Ref
 
