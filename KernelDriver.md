@@ -100,6 +100,8 @@ https://github.com/XaFF-XaFF/Black-Angel-Rootkit
 
 https://github.com/alfarom256/CVE-2022-3699
 
+[fengjixuchui/gdrv-loader](https://github.com/fengjixuchui/gdrv-loader)
+
 一些可用的驱动
 
  https://www.unknowncheats.me/forum/anti-cheat-bypass/334557-vulnerable-driver-megathread.html

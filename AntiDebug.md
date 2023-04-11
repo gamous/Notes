@@ -1132,6 +1132,8 @@ https://github.com/FiYHer/driver_callback_bypass_1909
 
 从0开始编写简易调试器 https://bbs.kanxue.com/thread-276162.htm
 
+一个调试器的实现 https://www.cnblogs.com/zplutor/archive/2011/03/04/1971279.html
+
 ## 参考资料 Ref
 
 [waliedassar: Wow64-Specific Anti-Debug Trick](http://waleedassar.blogspot.com/2013/01/wow64-specific-anti-debug-trick.html)

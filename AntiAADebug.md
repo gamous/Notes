@@ -4,6 +4,10 @@
 
 即对反反调试的常见技术进行检测，从而达到检测调试的目的
 
+## 实例
+
+https://github.com/gamous/AmogusPlugin/
+
 
 
 ## Flag蜜罐
