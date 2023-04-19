@@ -1066,11 +1066,17 @@ https://github.com/LordNoteworthy/al-khaser
 
 https://github.com/AdvDebug/AntiCrack-DotNet
 
-## 
+## 实例参考
 
+### GenshinDebuggerBypass 
 
+https://github.com/xTaiwanPingLord/GenshinDebuggerBypass
 
-## 反反调试工具
+### Genshin-Bypass
+
+https://github.com/notmarek/Genshin-Bypass
+
+## 调试工具
 
 ### SharpOD
 
