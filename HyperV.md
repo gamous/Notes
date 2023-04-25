@@ -166,30 +166,23 @@ void FullGdtDataItem(int index,short selector){
 
 	ULONG limit = __segmentlimit(selector);
 	PULONG item = (PULONG)(gdtTable.Base + selector);
+
 	LARGE_INTEGER itemBase = {0};
-	if(7==index){
-		//读TR
-		itemBase.LowPart = ((item[0] >> 16) & 0xFFFF) | ((item[1] & 0xFF) << 16) | ((item[1] & 0xFF000000));
-		itemBase.HighPart = item[2];
-		//属性
-		ULONG attr = (item[1] & 0x00F0FF00) >> 8;
-	}else{
-		itemBase.LowPart = (*item & 0xFFFF0000) >> 16;
-		item += 1;
-		itemBase.LowPart |= (*item & 0xFF000000) | ((*item & 0xFF) << 16);
-		//属性
-		ULONG attr = (*item & 0x00F0FF00) >> 8;
-		if (selector == 0) attr |= 1 << 16;
-	}
-	//index 0 -> GUEST_ES_BASE(0x00006806)
-    //index 1 -> GUEST_CS_BASE(0x00006808)
-    //...
+
+	itemBase.LowPart = ((item[0] >> 16) & 0xFFFF) //item[0]_[16:31] -> base_[00:15] 
+	                 | ((item[1] & 0xFF) << 16)   //item[1]_[00:07] -> base_[16:23] 
+					 | ((item[1] & 0xFF000000)); //item[1]_[24:31] -> base_[24:31] 
+	if(7 == index) //TSS
+	itemBase.HighPart = item[2];                  //item[2]_[00:32] -> base_[32:63]
+
+	ULONG attr = (item[1] & 0x00F0FF00) >> 8;
+	if (0 == selector) attr |= 1 << 16;
+
 	__vmx_vmwrite(GUEST_ES_BASE + index * 2, itemBase.QuadPart);
 	__vmx_vmwrite(GUEST_ES_LIMIT + index * 2, limit);
 	__vmx_vmwrite(GUEST_ES_AR_BYTES + index * 2, attr);
 	__vmx_vmwrite(GUEST_ES_SELECTOR + index * 2, selector);
 }
-
 ```
 
 
