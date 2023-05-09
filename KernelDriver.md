@@ -31,6 +31,23 @@ bcdedit.exe /set nointegritychecks on
 bcdedit /set testsigning on
 ```
 
+#### CSignTools
+
+命令行快速签名
+
+用PE工具对CSignTools添加导入项 `HookSigntool.dll!attach`
+
+用ContextMenuManager添加项`D:\\Program Portable\\DSigntool\\CSignTool.exe sign /r single /f %1  /kp`
+
+**Windows11**
+
+绕过SecureBoot并关闭`VulnerableDriverBlocklistEnable`
+
+```
+reg add HKLM\SYSTEM\CurrentControlSet\CI\Config /v "VulnerableDriverBlocklistEnable" /t REG_DWORD /d 0 /f
+reg add HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity/v "Enabled" /t REG_DWORD /d 0 /f
+```
+
 #### Inf2Cat
 
 使用WDK自带的测试签，也是微软提供给开发者的预期方案，设置起来较为麻烦
@@ -44,6 +61,10 @@ Inf2Cat /driver:C:\MyDriver /os:2000,XP_X86,Server2003_X86,Vista_X86
 注意：C:\MyDriver是我的驱动所在目录，请自行修改。
 5. 正常情况会生成CAT文件，文件名由INF文件中的CatalogFile进行设置。
 ```
+
+#### WHQL
+
+正式签名 昂贵
 
 ### 利用漏洞驱动
 
@@ -127,6 +148,12 @@ https://github.com/thesecretclub/SandboxBootkit
 无需签名+超难检测 的 驱动加载工具 https://www.52pojie.cn/thread-1347349-1-1.html
 
 在Win64系统上动态加载无签名驱动：WIN64LUD http://www.m5home.com/bbs/thread-7839-1-1.html
+
+### 隐藏加载驱动
+
+https://bbs.kanxue.com/thread-276912.htm
+
+https://github.com/IcEy-999/Drv_Hide_And_Camouflage
 
 ## PatchGuard / KPP
 
