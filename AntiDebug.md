@@ -89,6 +89,7 @@ bool Check(){
             &dwReturned);
         return NT_SUCCESS(status) && (-1 == dwProcessDebugPort);
     }
+    return false;
 }
 ```
 
@@ -109,6 +110,7 @@ bool Check(){
             &dwReturned);
         return NT_SUCCESS(status) && (0 == dwProcessDebugFlags);
     }
+    return false;
 }
 ```
 
@@ -131,8 +133,46 @@ bool Check(){
             &dwReturned);
         return NT_SUCCESS(status) && (0 != hProcessDebugObject);
     }
+    return false;
 }
 ```
+
+#### ProcessBasicInformation
+
+通过父进程检查是否被调试器启动
+
+```c
+typedef struct _PROCESS_BASIC_INFORMATION
+{
+    NTSTATUS ExitStatus;
+    PPEB PebBaseAddress;
+    ULONG_PTR AffinityMask;
+    KPRIORITY BasePriority;
+    HANDLE UniqueProcessId;
+    HANDLE InheritedFromUniqueProcessId; //父进程PID
+} PROCESS_BASIC_INFORMATION, *PPROCESS_BASIC_INFORMATION;
+```
+
+```c++
+bool Check(){ 
+    if (pfnNtQueryInformationProcess)
+    {
+        DWORD dwReturned;
+        PROCESS_BASIC_INFORMATION Basic;
+        const DWORD ProcessDebugObjectHandle = 0;
+        NTSTATUS status = pfnNtQueryInformationProcess(
+            GetCurrentProcess(),
+            ProcessBasicInformation,
+            &&Basic,
+            sizeof(Basic),
+            &dwReturned);
+        return Basic.InheritedFromUniqueProcessId != ULongToHandle(PID("explorer.exe"));
+    }
+    return false;
+}
+```
+
+
 
 ### NtQuerySystemInformation
 
@@ -200,7 +240,7 @@ bool Check(){
 
  `_ETHREAD->HideFromDebugger & ThreadHideFromDebugger `
 
-设置了ThreadHideFromDebugger的线程不会发送调试事件
+设置了ThreadHideFromDebugger的线程不会发送调试事件，相当于主动分离调试器
 
 #### NtSetInformationThread
 
@@ -801,7 +841,7 @@ bool Check(){
 
 
 
-### CloseHandle
+### NtClose
 
 函数：`ntdll!NtClose`  或 `kernel32!CloseHandle`
 
@@ -816,7 +856,7 @@ bool Check(){
 ```c++
 bool Check(){
     __try{
-        CloseHandle((HANDLE)0xDEADBEEF);
+        NtClose((HANDLE)0xDEADBEEF);
         return false;
     }__except (EXCEPTION_INVALID_HANDLE == GetExceptionCode()
                 ? EXCEPTION_EXECUTE_HANDLER 
@@ -826,6 +866,31 @@ bool Check(){
 }
 ```
 
+### NtDuplicateObject
+
+函数：`ntdll!NtDuplicateObject`
+
+原理：NtClose的变种 通过调试器的**异常接管处理**来判断 但是构造句柄异常的方式更加隐蔽 是SafeEngine商业版使用的反调试之一
+
+反反调试：拦截`ntdll!NtDuplicateObject`  可以使用 SharpOD *ZwFunctions
+
+使用`NtDuplicateObject`获取当前进程句柄并设置为禁止关闭，之后再使用`NtDuplicateObject`并关闭原句柄，则必然产生句柄异常
+
+````c++
+bool Check(){
+    __try{
+        HANDLE hTarget, hNewTarget;
+        DuplicateHandle((HANDLE)-1, (HANDLE)-1, (HANDLE)-1, &hTarget, 0, 0, DUPLICATE_SAME_ACCESS);
+        SetHandleInformation(hTarget, HANDLE_FLAG_PROTECT_FROM_CLOSE, HANDLE_FLAG_PROTECT_FROM_CLOSE);
+        DuplicateHandle((HANDLE)-1, (HANDLE)hTarget, (HANDLE)-1, &hNewTarget, 0, 0, DUPLICATE_CLOSE_SOURCE);
+        return false;
+    }__except (EXCEPTION_INVALID_HANDLE == GetExceptionCode()
+                ? EXCEPTION_EXECUTE_HANDLER 
+                : EXCEPTION_CONTINUE_SEARCH){
+        return true;
+    }
+}
+````
 
 ### NtQueryObject
 
@@ -1013,7 +1078,9 @@ if (isDebugged)
 
 ## 进程内存
 
-从线程上下文中检查DR寄存器
+### 硬断检测
+
+从线程上下文中检查DR寄存器是否设置硬件断点
 
 ```cpp
 bool IsDebugged(){
@@ -1025,6 +1092,84 @@ bool IsDebugged(){
     return ctx.Dr0 || ctx.Dr1 || ctx.Dr2 || ctx.Dr3;
 }
 ```
+
+### CRC检测
+
+可以检查到inlinehook和软件断点
+
+通常只能对少数关键位置做检查
+
+特征明显，修改内存失败后进行访存追踪即可发现子线程持续访问
+
+```c
+// 从checkpoints直接复制来的
+PVOID g_pFuncAddr;
+DWORD g_dwFuncSize;
+DWORD g_dwOriginalChecksum;
+
+static void VeryImportantFunction(){
+    // ...
+}
+
+static DWORD WINAPI ThreadFuncCRC32(LPVOID lpThreadParameter){
+    //子线程实时检查crc
+    while (true){
+        if (CRC32((PBYTE)g_pFuncAddr, g_dwFuncSize) != g_dwOriginalChecksum)
+            ExitProcess(0);
+        Sleep(10000);
+    }
+    return 0;
+}
+
+size_t DetectFunctionSize(PVOID pFunc){
+    PBYTE pMem = (PBYTE)pFunc;
+    size_t nFuncSize = 0;
+    do {
+        ++nFuncSize;
+    } while (*(pMem++) != 0xC3);
+    return nFuncSize;
+}
+
+int main(){
+    g_pFuncAddr = (PVOID)&VeryImportantFunction;
+    g_dwFuncSize = DetectFunctionSize(g_pFuncAddr);
+    g_dwOriginalChecksum = CRC32((PBYTE)g_pFuncAddr, g_dwFuncSize);
+    
+    HANDLE hChecksumThread = CreateThread(NULL, NULL, ThreadFuncCRC32, NULL, NULL, NULL);
+    
+    // ...
+    
+    return 0;
+}
+```
+
+
+
+
+
+## 反附加
+
+### DbgBreakPoint
+
+hook `ntdll!DbgBreakPoint`
+
+```c++
+void Patch_DbgBreakPoint(){
+    HMODULE hNtdll = GetModuleHandleA("ntdll.dll");
+    if (!hNtdll) return;
+    FARPROC pDbgBreakPoint = GetProcAddress(hNtdll, "DbgBreakPoint");
+    if (!pDbgBreakPoint) return;
+    DWORD dwOldProtect;
+    if (!VirtualProtect(pDbgBreakPoint, 1, PAGE_EXECUTE_READWRITE, &dwOldProtect)) return;
+    *(PBYTE)pDbgBreakPoint = (BYTE)0xC3; // ret
+}
+```
+
+
+
+### ObjectCallback
+
+内核句柄降权
 
 
 
@@ -1096,7 +1241,7 @@ https://github.com/mrexodia/TitanHide
 
 https://github.com/Air14/HyperHide
 
-使用VT-x和EPT技术
+使用VT-x和EPT技术 综合实现的内核反调试大全
 
 ### AADebug
 

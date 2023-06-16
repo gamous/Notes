@@ -4,6 +4,17 @@
 
 
 
+## INT 1E
+
+https://github.com/Japrajah/ANTI_DBVM_TRACE/blob/master/ANTI_DBVM_TRACE/dbvm_trap.hh
+
+```C++
+```
+
+
+
+
+
 ## INT 2E
 
 int 2e 是系统调用向量 (Sysenter)
