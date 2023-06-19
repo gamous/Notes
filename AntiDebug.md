@@ -1078,6 +1078,20 @@ if (isDebugged)
 
 ## 进程内存
 
+### 断点检测
+
+```c++
+IMAGE_DOS_HEADER *dos_head=(IMAGE_DOS_HEADER *)GetModuleHandle(NULL);
+PIMAGE_NT_HEADERS32 nt_head=(PIMAGE_NT_HEADERS32)((DWORD)dos_head+(DWORD)dos_head->e_lfanew);
+BYTE*OEP=(BYTE*)(nt_head->OptionalHeader.AddressOfEntryPoint+(DWORD)dos_head);
+//扫描程序入口点的20字节是否存在调试断点
+for(unsigned long index=0;index<20;index++){
+	if(OEP[index]==0xcc)ExitProcess(0);
+}
+```
+
+
+
 ### 硬断检测
 
 从线程上下文中检查DR寄存器是否设置硬件断点
@@ -1174,6 +1188,47 @@ void Patch_DbgBreakPoint(){
 
 
 [waliedassar: ShareCount As Anti-Debugging Trick (waleedassar.blogspot.com)](http://waleedassar.blogspot.com/2014/06/sharecount-as-anti-debugging-trick.html)
+
+
+
+## 反调试器
+
+### 窗口检测
+
+```c++
+HWND hd_od=FindWindow("ollydbg",NULL);
+SetWindowLong(hd_od,GWL_STYLE,WS_DISABLED);
+```
+
+### 阻塞输入
+
+```c++
+BYTE *address=(BYTE *)GetProcAddress(LoadLibrary("user32.dll"),"BlockInput");;
+bool modify=true;
+for(int x=0;x<20;x++){
+	if(address[x]==0xff&&address[x+1]!=0xff){
+		modify=false;
+		break;
+	}
+}
+if(modify) ExitProcess(0);
+//main
+BlockInput(TRUE);
+//...
+__try{
+       __asm{
+              xor eax,eax
+             div eax,eax
+            xor eax,eax
+       }
+      ExitProcess(0);
+}
+__except(1,1){
+       BlockInput(FALSE);
+}
+```
+
+
 
 
 
