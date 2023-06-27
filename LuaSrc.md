@@ -2,6 +2,162 @@
 
 
 
+## 5.1格式文件(LuaQ)
+
+```
+print("Hello World!")
+```
+
+使用`luac`生成文件如下
+
+```
+1B 4C 75 61 51 00 01 04 04 04 08 00 13 00 00 00
+40 2E 5C 68 65 6C 6C 6F 5F 77 6F 72 6C 64 2E 6C
+75 61 00 00 00 00 00 00 00 00 00 00 00 02 02 04
+00 00 00 05 00 00 00 41 40 00 00 1C 40 00 01 1E
+00 80 00 02 00 00 00 04 06 00 00 00 70 72 69 6E
+74 00 04 0D 00 00 00 48 65 6C 6C 6F 20 57 6F 72
+6C 64 21 00 00 00 00 00 04 00 00 00 01 00 00 00
+01 00 00 00 01 00 00 00 01 00 00 00 00 00 00 00
+00 00 00 00
+```
+
+```c
+void luaU_header (char* h)
+{
+ int x=1;
+ memcpy(h,LUA_SIGNATURE,sizeof(LUA_SIGNATURE)-1);
+ h+=sizeof(LUA_SIGNATURE)-1;
+ *h++=(char)LUAC_VERSION;
+ *h++=(char)LUAC_FORMAT;
+ *h++=(char)*(char*)&x;				/* endianness */
+ *h++=(char)sizeof(int);
+ *h++=(char)sizeof(size_t);
+ *h++=(char)sizeof(Instruction);
+ *h++=(char)sizeof(lua_Number);
+ *h++=(char)(((lua_Number)0.5)==0);		/* is lua_Number integral? */
+}
+
+#define DumpMem(b,n,size,D)	DumpBlock(b,(n)*(size),D)
+#define DumpVar(x,D)	 	DumpMem(&x,1,sizeof(x),D)
+#define DumpCode(f,D)	    DumpVector(f->code,f->sizecode,sizeof(Instruction),D)
+
+static void DumpFunction(const Proto* f, const TString* p, DumpState* D)
+{
+ DumpString((f->source==p || D->strip) ? NULL : f->source,D);
+ DumpInt(f->linedefined,D);
+ DumpInt(f->lastlinedefined,D);
+ DumpChar(f->nups,D);
+ DumpChar(f->numparams,D);
+ DumpChar(f->is_vararg,D);
+ DumpChar(f->maxstacksize,D);
+ DumpCode(f,D);
+ DumpConstants(f,D);
+ DumpDebug(f,D);
+}
+
+static void DumpString(const TString* s, DumpState* D)
+{
+ if (s==NULL || getstr(s)==NULL)
+ {
+  size_t size=0;
+  DumpVar(size,D);
+ }
+ else
+ {
+  size_t size=s->tsv.len+1;		/* include trailing '\0' */
+  DumpVar(size,D); //size
+  DumpBlock(getstr(s),size,D); //data
+ }
+}
+
+static void DumpVector(const void* b, int n, size_t size, DumpState* D)
+{
+ DumpInt(n,D);
+ DumpMem(b,n,size,D);
+}
+```
+
+
+
+```
+1B 4C 75 61 //LUA_SIGNATURE
+51 //LUAC_VERSION
+00 //LUAC_FORMAT
+01 //endianness
+04 //sizeof(int)
+04 //sizeof(size_t)
+04 //sizeof(Instruction)
+08 //sizeof(lua_Number)
+00 //is lua_Number integral
+
+//DumpString("@.\hello_world.lua")
+13 00 00 00 //DumpVar(strsize)
+40 2E 5C 68 65 6C 6C 6F 5F 77 6F 72 6C 64 2E 6C 75 61 00 //DumpBlock(strdata)
+
+//DumpInt(f->linedefined,D);
+00 00 00 00
+//DumpInt(f->lastlinedefined,D);
+00 00 00 00
+//DumpChar(f->nups,D);
+00
+//DumpChar(f->numparams,D);
+00
+//DumpChar(f->is_vararg,D);
+02
+//DumpChar(f->maxstacksize,D);
+02
+
+//#define DumpCode(f,D)	 DumpVector(f->code,f->sizecode,sizeof(Instruction),D)
+//DumpInt(f->sizecode,D);
+04 00 00 00
+//DumpBlock(f->code,f->sizecode*sizeof(Instruction),D);
+05 00 00 00 //GETGLOBAL       0 -1    ; print
+41 40 00 00 //LOADK           1 -2    ; "Hello World!"
+1C 40 00 01 //CALL            0 2 1
+1E 00 80 00 //RETURN          0 1
+
+//DumpConstants
+//DumpInt(f->sizek,D);
+02 00 00 00
+//DumpChar(ttype(&f->k[i]),D);
+04 //Tstring
+//DumpString(rawtsvalue(o),D);
+06 00 00 00
+70 72 69 6E 74 00 //print
+04 
+0D 00 00 00 
+48 65 6C 6C 6F 20 57 6F 72 6C 64 21 00 //Hello World!
+//DumpInt(f->sizep,D);
+00 00 00 00 
+
+//DumpDebug
+//DumpVector(f->lineinfo,f->sizelineinfo,sizeof(int),D);
+04 00 00 00//size
+//DumpMem(b,n,size,D);
+01 00 00 00
+//DumpInt(f->sizelocvars,D);
+01 00 00 00
+//DumpString(f->locvars[i].varname,D);
+01 00 00 00 
+//DumpInt(f->locvars[i].startpc,D);
+01 00 00 00
+//DumpInt(f->locvars[i].endpc,D);
+00 00 00 00
+//DumpInt(f->sizeupvalues,D)
+00 00 00 00
+//DumpString(f->upvalues[i],D);
+//
+```
+
+
+
+
+
+
+
+
+
 ## 基础类型
 
 `lua.h`
@@ -266,5 +422,89 @@ struct lua_State {
   struct lua_longjmp *errorJmp;  /* current error recover point */
   ptrdiff_t errfunc;  /* current error handling function (stack index) */
 };
+```
+
+
+
+
+
+## 附录
+
+### AllOP.lua
+
+```lua
+local u1,u2,u3
+function f1(a1,a2,...)
+    local l0 = a1; -- move
+    local l1 = 1 -- loadk
+    local l2 = true -- loadbool
+    local l3 = nil -- loadnil
+    local l4 = u1[g1] -- gettupval, getglobal, gettable
+    g1 = l1 -- setglobal
+    u2 = l2 -- setupval
+    l3[l2] = l1 -- settable
+    local l5 = { -- newtable
+        l1, l2; -- move, setlist
+        x = l2 -- settable
+    }
+    local l6 = l5:x() -- self, call
+    local l7 = -((l0+l1-l2)*l3/l4%l5)^l6 -- add, sub, mul, div, mod, pow, unm
+    local l8 = #(not l7) -- not, len
+    local l9 = l7..l8 -- concat
+    if l1==l2 and l2<l3 or l3<=l4 then -- eq, lt, le, jmp
+        for i = 1, 10, 2 do -- forprep
+            l0 = l0 and l2 -- test
+        end -- forloop
+    else -- jmp
+        for k,v in ipairs(l5) do
+            l4 = l5 or l6 -- testset
+        end -- tforloop
+    end
+    do
+        local l21, l22 = ... -- vararg
+        local function f2() -- closure
+            return l21, l22
+        end
+        f2(k,v) -- call
+    end --close
+    return f1() -- return, tailcall
+end
+```
+
+
+
+C API
+
+```c
+lua_State* L = luaL_newstate();
+luaL_loadbuffer or luaL_loadstring or luaL_loadfile
+Closure* c=(Closure*)lua_topointer(L, -1);
+Proto* f = c->l.p;//Closure如果改了偏移会不同
+luaU_dump(L, f, writer, D, 0);//非导出函数， string.dump
+lua_close(L);
+```
+
+
+
+Lua API
+
+```
+-- luaopen_string 此库必须打开
+allopcodes() allopcodes.lua文件内容 end
+chunk = string.dump(allopcodes)
+if luaopen_io then --如果 io 可用，则可以直接写文件
+    file:write(chunk)
+else
+    output(chunk,to_any_where) --想办法把 chunk 搞出来,直接读内存也行
+    return chunk
+end
+```
+
+
+
+
+
+```
+void luaV_execute (lua_State *L, int nexeccalls)
 ```
 
