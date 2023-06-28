@@ -428,9 +428,11 @@ struct lua_State {
 
 
 
-## 附录
+## 还原OpCode乱序
 
-### AllOP.lua
+### Dump对比
+
+allopcodes.lua
 
 ```lua
 local u1,u2,u3
@@ -502,9 +504,506 @@ end
 
 
 
+#### 缓解措施
+
+避免相关函数导出
+
+
+
+
+
+### luaP数组
+
+luaP_opnames
+
+luaP_opmodes
+
+#### 缓解措施
+
+删除/注释相关代码
+
+
+
+### OpMode
+
+```c++
+/*
+** masks for instruction properties. The format is:
+** bits 0-1: op mode
+** bits 2-3: C arg mode
+** bits 4-5: B arg mode
+** bit 6: instruction set register A
+** bit 7: operator is a test
+*/  
+enum OpArgMask {
+  OpArgN,  /* argument is not used */
+  OpArgU,  /* argument is used */
+  OpArgR,  /* argument is a register or a jump offset */
+  OpArgK   /* argument is a constant or register/constant */
+};
+enum OpMode {iABC, iABx, iAsBx};  /* basic instruction format */
+
+#define opmode(t,a,b,c,m) (((t)<<7) | ((a)<<6) | ((b)<<4) | ((c)<<2) | (m))
+const lu_byte luaP_opmodes[NUM_OPCODES] = {
+/*       T  A    B       C     mode		   opcode	*/
+  opmode(0, 1, OpArgR, OpArgN, iABC) 		/* OP_MOVE */
+ ,opmode(0, 1, OpArgK, OpArgN, iABx)		/* OP_LOADK */
+ ,opmode(0, 1, OpArgU, OpArgU, iABC)		/* OP_LOADBOOL */
+ ,opmode(0, 1, OpArgR, OpArgN, iABC)		/* OP_LOADNIL */
+ ,opmode(0, 1, OpArgU, OpArgN, iABC)		/* OP_GETUPVAL */
+ ,opmode(0, 1, OpArgK, OpArgN, iABx)		/* OP_GETGLOBAL */
+ ,opmode(0, 1, OpArgR, OpArgK, iABC)		/* OP_GETTABLE */
+ ,opmode(0, 0, OpArgK, OpArgN, iABx)		/* OP_SETGLOBAL */
+ ,opmode(0, 0, OpArgU, OpArgN, iABC)		/* OP_SETUPVAL */
+ ,opmode(0, 0, OpArgK, OpArgK, iABC)		/* OP_SETTABLE */
+ ,opmode(0, 1, OpArgU, OpArgU, iABC)		/* OP_NEWTABLE */
+ ,opmode(0, 1, OpArgR, OpArgK, iABC)		/* OP_SELF */
+ ,opmode(0, 1, OpArgK, OpArgK, iABC)		/* OP_ADD */
+ ,opmode(0, 1, OpArgK, OpArgK, iABC)		/* OP_SUB */
+ ,opmode(0, 1, OpArgK, OpArgK, iABC)		/* OP_MUL */
+ ,opmode(0, 1, OpArgK, OpArgK, iABC)		/* OP_DIV */
+ ,opmode(0, 1, OpArgK, OpArgK, iABC)		/* OP_MOD */
+ ,opmode(0, 1, OpArgK, OpArgK, iABC)		/* OP_POW */
+ ,opmode(0, 1, OpArgR, OpArgN, iABC)		/* OP_UNM */
+ ,opmode(0, 1, OpArgR, OpArgN, iABC)		/* OP_NOT */
+ ,opmode(0, 1, OpArgR, OpArgN, iABC)		/* OP_LEN */
+ ,opmode(0, 1, OpArgR, OpArgR, iABC)		/* OP_CONCAT */
+ ,opmode(0, 0, OpArgR, OpArgN, iAsBx)		/* OP_JMP */
+ ,opmode(1, 0, OpArgK, OpArgK, iABC)		/* OP_EQ */
+ ,opmode(1, 0, OpArgK, OpArgK, iABC)		/* OP_LT */
+ ,opmode(1, 0, OpArgK, OpArgK, iABC)		/* OP_LE */
+ ,opmode(1, 1, OpArgR, OpArgU, iABC)		/* OP_TEST */
+ ,opmode(1, 1, OpArgR, OpArgU, iABC)		/* OP_TESTSET */
+ ,opmode(0, 1, OpArgU, OpArgU, iABC)		/* OP_CALL */
+ ,opmode(0, 1, OpArgU, OpArgU, iABC)		/* OP_TAILCALL */
+ ,opmode(0, 0, OpArgU, OpArgN, iABC)		/* OP_RETURN */
+ ,opmode(0, 1, OpArgR, OpArgN, iAsBx)		/* OP_FORLOOP */
+ ,opmode(0, 1, OpArgR, OpArgN, iAsBx)		/* OP_FORPREP */
+ ,opmode(1, 0, OpArgN, OpArgU, iABC)		/* OP_TFORLOOP */
+ ,opmode(0, 0, OpArgU, OpArgU, iABC)		/* OP_SETLIST */
+ ,opmode(0, 0, OpArgN, OpArgN, iABC)		/* OP_CLOSE */
+ ,opmode(0, 1, OpArgU, OpArgN, iABx)		/* OP_CLOSURE */
+ ,opmode(0, 1, OpArgU, OpArgN, iABC)		/* OP_VARARG */
+};
+```
+
+
+
+### OpCode
+
+```
+  Instructions can have the following fields:
+	`A' : 8 bits
+	`B' : 9 bits
+	`C' : 9 bits
+	`Bx' : 18 bits (`B' and `C' together)
+	`sBx' : signed Bx
+```
+
 
 
 ```
-void luaV_execute (lua_State *L, int nexeccalls)
+iABC | Opcode:0-7 A:8-15   C:16-24 B:24-31 
+iABx | Opcode:0-7 A:8-15  Bx:16-31
+iAsBx| Opcode:0-7 A:8-15 sBx:16-31
+iAx  | Opcode:0-7 A:8-31
+```
+
+
+
+
+
+```c
+typedef enum {
+/*----------------------------------------------------------------------
+name		args	description
+------------------------------------------------------------------------*/
+OP_MOVE,/*	A B	R(A) := R(B)					*/
+OP_LOADK,/*	A Bx	R(A) := Kst(Bx)					*/
+OP_LOADBOOL,/*	A B C	R(A) := (Bool)B; if (C) pc++			*/
+OP_LOADNIL,/*	A B	R(A) := ... := R(B) := nil			*/
+OP_GETUPVAL,/*	A B	R(A) := UpValue[B]				*/
+
+OP_GETGLOBAL,/*	A Bx	R(A) := Gbl[Kst(Bx)]				*/
+OP_GETTABLE,/*	A B C	R(A) := R(B)[RK(C)]				*/
+
+OP_SETGLOBAL,/*	A Bx	Gbl[Kst(Bx)] := R(A)				*/
+OP_SETUPVAL,/*	A B	UpValue[B] := R(A)				*/
+OP_SETTABLE,/*	A B C	R(A)[RK(B)] := RK(C)				*/
+
+OP_NEWTABLE,/*	A B C	R(A) := {} (size = B,C)				*/
+
+OP_SELF,/*	A B C	R(A+1) := R(B); R(A) := R(B)[RK(C)]		*/
+
+OP_ADD,/*	A B C	R(A) := RK(B) + RK(C)				*/
+OP_SUB,/*	A B C	R(A) := RK(B) - RK(C)				*/
+OP_MUL,/*	A B C	R(A) := RK(B) * RK(C)				*/
+OP_DIV,/*	A B C	R(A) := RK(B) / RK(C)				*/
+OP_MOD,/*	A B C	R(A) := RK(B) % RK(C)				*/
+OP_POW,/*	A B C	R(A) := RK(B) ^ RK(C)				*/
+OP_UNM,/*	A B	R(A) := -R(B)					*/
+OP_NOT,/*	A B	R(A) := not R(B)				*/
+OP_LEN,/*	A B	R(A) := length of R(B)				*/
+
+OP_CONCAT,/*	A B C	R(A) := R(B).. ... ..R(C)			*/
+
+OP_JMP,/*	sBx	pc+=sBx					*/
+
+OP_EQ,/*	A B C	if ((RK(B) == RK(C)) ~= A) then pc++		*/
+OP_LT,/*	A B C	if ((RK(B) <  RK(C)) ~= A) then pc++  		*/
+OP_LE,/*	A B C	if ((RK(B) <= RK(C)) ~= A) then pc++  		*/
+
+OP_TEST,/*	A C	if not (R(A) <=> C) then pc++			*/ 
+OP_TESTSET,/*	A B C	if (R(B) <=> C) then R(A) := R(B) else pc++	*/ 
+
+OP_CALL,/*	A B C	R(A), ... ,R(A+C-2) := R(A)(R(A+1), ... ,R(A+B-1)) */
+OP_TAILCALL,/*	A B C	return R(A)(R(A+1), ... ,R(A+B-1))		*/
+OP_RETURN,/*	A B	return R(A), ... ,R(A+B-2)	(see note)	*/
+
+OP_FORLOOP,/*	A sBx	R(A)+=R(A+2);
+			if R(A) <?= R(A+1) then { pc+=sBx; R(A+3)=R(A) }*/
+OP_FORPREP,/*	A sBx	R(A)-=R(A+2); pc+=sBx				*/
+
+OP_TFORLOOP,/*	A C	R(A+3), ... ,R(A+2+C) := R(A)(R(A+1), R(A+2)); 
+                        if R(A+3) ~= nil then R(A+2)=R(A+3) else pc++	*/ 
+OP_SETLIST,/*	A B C	R(A)[(C-1)*FPF+i] := R(A+i), 1 <= i <= B	*/
+
+OP_CLOSE,/*	A 	close all variables in the stack up to (>=) R(A)*/
+OP_CLOSURE,/*	A Bx	R(A) := closure(KPROTO[Bx], R(A), ... ,R(A+n))	*/
+
+OP_VARARG/*	A B	R(A), R(A+1), ..., R(A+B-1) = vararg		*/
+} OpCode;
+
+```
+
+
+
+
+
+### execute对比
+
+```c+
+//lvm.c
+void luaV_execute (lua_State *L, int nexeccalls);
+```
+
+
+
+
+
+#### case OP_MOVE
+
+```c++
+/* from stack to (same) stack */
+const TValue *o2=(rb);
+TValue *o1=(ra); 
+o1->value = o2->value;
+o1->tt=o2->tt;
+//checkliveness(G(L),o1);
+```
+
+```c++
+        v147 = (int *)&level[v149 >> 23];//o2 = RB(i)
+        v146 = val;//o1=ra
+        v146->value.b = *v147;//o1->value = o2->value;
+        *(&v146->value.b + 1) = v147[1];
+        v146->tt = v147[2];//o1->tt=o2->tt;
+        continue;
+```
+
+```c++
+        v16 = v6 >> 23;
+        v9->value.b = v4[v16].value.b;
+        *(&v9->value.b + 1) = *(&v4[v16].value.b + 1);
+        v9->tt = v4[v16].tt;
+        continue;
+```
+
+#### case OP_LOADK
+
+```
+KBx(i)
+/* to stack (not from same stack) */
+const TValue *o2=(rb);
+TValue *o1=(ra); 
+o1->value = o2->value;
+o1->tt=o2->tt;
+```
+
+
+
+```c++
+        v145 = (int *)(v151 + 16 * (v149 >> 14));
+        v144 = val;
+        v4 = v145[1];
+        v5 = val;
+        val->value.b = *v145;
+        *(&v5->value.b + 1) = v4;
+        v144->tt = v145[2];
+        continue;
+```
+
+
+
+#### case OP_LOADBOOL
+
+
+
+#### arith_op
+
+```c++
+   arith_op(op,tm) { 
+        TValue *rb = RKB(i); 
+        TValue *rc = RKC(i);
+       //如果两个操作数都是数值 直接通过展开宏里的算式计算数值
+        if (ttisnumber(rb) && ttisnumber(rc)) { 
+          lua_Number nb = nvalue(rb), nc = nvalue(rc); 
+          TValue *i_o=ra; 
+          i_o->value.n=op(nb, nc); 
+          i_o->tt=LUA_TNUMBER;
+        } 
+        else 
+            L->savedpc = pc;
+       		//否则通过luaV_tonumber类型转换成数值类型再通过算式计算
+       		Arith(L, ra, rb, rc, tm); 
+       		base = L->base;
+      }
+  case OP_ADD: {//12
+    arith_op(luai_numadd, TM_ADD); //5
+    continue;
+  }
+  case OP_SUB: {
+    arith_op(luai_numsub, TM_SUB); //6
+    continue;
+  }
+  case OP_MUL: {
+    arith_op(luai_nummul, TM_MUL); //7
+    continue;
+  }
+  case OP_DIV: {
+    arith_op(luai_numdiv, TM_DIV); //8
+    continue;
+  }
+  case OP_MOD: {
+    arith_op(luai_nummod, TM_MOD); //9
+    continue;
+  }
+  case OP_POW: {//17
+    arith_op(luai_numpow, TM_POW); //10
+    continue;
+  }
+ case OP_UNM: { //一元操作 没有用arith宏
+        TValue *rb = RB(i);
+        if (ttisnumber(rb)) {
+          lua_Number nb = nvalue(rb);
+          setnvalue(ra, luai_numunm(nb));
+        }
+        else {
+          Protect(Arith(L, ra, rb, rb, TM_UNM));
+        }
+        continue;
+      }
+```
+
+核心特征
+
+```
+Arith(a1, a2, a3, a4, TM_CODE)
+//x86
+.text:10806469 6A 05                         push    5                               ; lua_TValue *
+.text:1080646B 53                            push    ebx                             ; lua_TValue *
+.text:1080646C 8B D1                         mov     nexeccalls, L
+.text:1080646E 89 77 18                      mov     [edi+18h], esi
+.text:10806471 50                            push    eax                             ; lua_State *
+.text:10806472 8B CF                         mov     L, edi
+.text:10806474 DD D8                         fstp    st
+.text:10806476 E8 95 F9 FF FF                call    Arith
+```
+
+```
+call_binTM(L, rb, luaO_nilobject, ra, TM_LEN)
+call_binTM(L, rb, rc, ra, op)
+
+typedef enum {
+  TM_INDEX,//0
+  TM_NEWINDEX,//1
+  TM_GC,  //2
+  TM_MODE,//3
+  TM_EQ,  //4  /* last tag method with `fast' access */
+  TM_ADD, //5
+  TM_SUB, //6
+  TM_MUL, //7
+  TM_DIV, //8
+  TM_MOD, //9
+  TM_POW, //10
+  TM_UNM, //11
+  TM_LEN, //12
+  TM_LT,  //13
+  TM_LE,  //14
+  TM_CONCAT,//15
+  TM_CALL,//16
+  TM_N	  //17	/* number of elements in the enum */
+} TMS;
+```
+
+
+
+#### API
+
+```c++
+//luaV_gettable
+case OP_GETGLOBAL:
+	TValue *rb = KBx(i);
+    ttype(rb) == LUA_TSTRING; //4
+	luaV_gettable(L, &g, rb, ra);
+case OP_GETTABLE:
+	luaV_gettable(L, RB(i), RKC(i), ra);
+case OP_SELF:
+	luaV_gettable(L, rb, RKC(i), ra);
+
+//luaV_settable
+case OP_SETGLOBAL:
+    luaV_settable(L, &g, KBx(i), ra);
+case OP_SETTABLE:
+    luaV_settable(L, ra, RKB(i), RKC(i));
+
+//luaC_barrierf
+case OP_SETUPVAL:
+	luaC_barrier(L, uv, ra);
+	//if (valiswhite(v) && isblack(obj2gco(p)))  \
+	//	luaC_barrierf(L,obj2gco(p),gcvalue(v));
+
+//luaH_new
+case OP_NEWTABLE:
+	sethvalue(L, ra, luaH_new(L, luaO_fb2int(b), luaO_fb2int(c)));
+
+//Arith
+//见上一节
+
+
+//luaH_getn
+case OP_LEN:
+	setnvalue(ra, cast_num(luaH_getn(hvalue(rb))));
+
+//luaV_concat
+case OP_CONCAT:
+ 	Protect(luaV_concat(L, c-b+1, c); luaC_checkGC(L));
+	//luaC_step
+
+//luaV_equalval 
+case OP_EQ:
+ 	luaV_equalval((lua_State *)v69, (const lua_TValue *)v122, (const lua_TValue *)v123);
+
+//luaV_lessthan
+case OP_LT:
+	if (luaV_lessthan(L, RKB(i), RKC(i)) == GETARG_A(i))dojump(L, pc, GETARG_sBx(*pc));
+
+//lessequal
+case OP_LE: 
+	if (lessequal(L, RKB(i), RKC(i)) == GETARG_A(i))dojump(L, pc, GETARG_sBx(*pc));
+
+//luaD_precall
+case OP_CALL:
+	switch (luaD_precall(L, ra, nresults) case 0/1;
+case OP_TAILCALL:
+    switch (luaD_precall(L, ra, LUA_MULTRET))case 0/1; //LUA_MULTRET==-1
+            luaF_close(L, ci->base);
+
+case OP_RETURN:
+    luaF_close(L, base);
+    luaD_poscall(L, ra);
+	//lua_assert(GET_OPCODE(*((L->ci)->savedpc - 1)) == OP_CALL);
+
+case OP_FORPREP:
+	luaG_runerror(L, LUA_QL("for") " initial value must be a number");
+	luaG_runerror(L, LUA_QL("for") " limit must be a number");
+	luaG_runerror(L, LUA_QL("for") " step must be a number");
+
+case OP_SETLIST:
+	luaH_resizearray(L, h, last);
+	luaH_setnum(L, h, last--), val);
+
+case OP_CLOSE:
+	luaF_close(L, ra);
+case OP_CLOSURE:
+	luaF_newLclosure(L, nup, cl->env);
+	luaF_findupval(L, base + GETARG_B(*pc));
+	luaD_reallocstack(L, L->stacksize - EXTRA_STACK - 1);
+	luaC_step(L);
+case OP_VARARG:
+	luaD_growstack(L, n);
+	luaD_reallocstack(L, L->stacksize - EXTRA_STACK - 1)
+ 
+ case OP_FORLOOP:
+    luaD_call(L, funca, (v149 >> 14) & 0x1FF);
+```
+
+
+
+```
+case OP_NOT:
+ case OP_JMP:
+
+ case OP_TEST: 
+ case OP_TESTSET:
+
+```
+
+
+
+
+
+#### 有明显字符串特征
+
+```c++
+void luaG_typeerror (lua_State *L, const TValue *o, const char *op) {
+  const char *name = NULL;
+  const char *t = luaT_typenames[ttype(o)];
+  const char *kind = (isinstack(L->ci, o)) ?
+                         getobjname(L, L->ci, cast_int(o - L->base), &name) :
+                         NULL;
+  if (kind)
+    luaG_runerror(L, "attempt to %s %s " LUA_QS " (a %s value)",
+                op, kind, name, t);
+  else
+    luaG_runerror(L, "attempt to %s a %s value", op, t);
+}
+
+//luaV_concat
+void luaG_concaterror (lua_State *L, StkId p1, StkId p2) {
+  if (ttisstring(p1) || ttisnumber(p1)) p1 = p2;
+  lua_assert(!ttisstring(p1) && !ttisnumber(p1));
+  luaG_typeerror(L, p1, "concatenate");
+}
+
+
+void luaG_aritherror (lua_State *L, const TValue *p1, const TValue *p2) {
+  TValue temp;
+  if (luaV_tonumber(p1, &temp) == NULL)
+    p2 = p1;  /* first operand is wrong */
+  luaG_typeerror(L, p2, "perform arithmetic on");
+}
+
+
+int luaG_ordererror (lua_State *L, const TValue *p1, const TValue *p2) {
+  const char *t1 = luaT_typenames[ttype(p1)];
+  const char *t2 = luaT_typenames[ttype(p2)];
+  if (t1[2] == t2[2])
+    luaG_runerror(L, "attempt to compare two %s values", t1);
+  else
+    luaG_runerror(L, "attempt to compare %s with %s", t1, t2);
+  return 0;
+}
+```
+
+
+
+
+
+```c++
+case OP_LEN : luaG_typeerror(L, rb, "get length of");
+case OP_FORPREP: luaG_runerror(L, LUA_QL("for") " initial value must be a number");
+                 luaG_runerror(L, LUA_QL("for") " limit must be a number");
+                 luaG_runerror(L, LUA_QL("for") " step must be a number");
 ```
 
