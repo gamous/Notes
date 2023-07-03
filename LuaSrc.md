@@ -872,6 +872,7 @@ case OP_SETUPVAL:
 	luaC_barrier(L, uv, ra);
 	//if (valiswhite(v) && isblack(obj2gco(p)))  \
 	//	luaC_barrierf(L,obj2gco(p),gcvalue(v));
+	//reallymarkobject
 
 //luaH_new
 case OP_NEWTABLE:
@@ -941,9 +942,33 @@ case OP_VARARG:
 
 
 ```
+      case OP_MOVE: {
+        setobjs2s(L, ra, RB(i));
+        continue;
+      }
+      case OP_LOADK: {
+        setobj2s(L, ra, KBx(i));
+        continue;
+      }
+      case OP_LOADBOOL: {
+        setbvalue(ra, GETARG_B(i));
+        if (GETARG_C(i)) pc++;  /* skip next instruction (if C) */
+        continue;
+      }
+      case OP_LOADNIL: {
+        TValue *rb = RB(i);
+        do {
+          setnilvalue(rb--);
+        } while (rb >= ra);
+        continue;
+      }
+      case OP_GETUPVAL: {
+        int b = GETARG_B(i);
+        setobj2s(L, ra, cl->upvals[b]->v);
+        continue;
+      }
 case OP_NOT:
  case OP_JMP:
-
  case OP_TEST: 
  case OP_TESTSET:
 
@@ -1007,3 +1032,26 @@ case OP_FORPREP: luaG_runerror(L, LUA_QL("for") " initial value must be a number
                  luaG_runerror(L, LUA_QL("for") " step must be a number");
 ```
 
+
+
+
+
+
+
+
+
+## AndLua逆向
+
+
+
+
+
+
+
+
+
+## 相关资料
+
+https://gohalo.me/post/lua-sourcecode.html
+
+https://github.com/lichuang/Lua-Source-Internal/
