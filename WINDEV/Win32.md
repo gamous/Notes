@@ -158,3 +158,6 @@ https://tttang.com/archive/1464/
 
 
 
+windows镜像下载
+
+https://files.rg-adguard.net/
