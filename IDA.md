@@ -65,6 +65,8 @@ https://github.com/vmallet/ida-plugins
 
 ### 代码美化
 
+https://github.com/joydo/d810
+
 https://github.com/oopsmishap/HexRaysPyTools
 
 https://github.com/P4nda0s/IDABeautify
@@ -170,6 +172,8 @@ https://github.com/fjqisba/QtMetaParser
 ### Rust
 
 https://github.com/cxiao/ida-rust-untangler
+
+https://github.com/R33v0LT/rlibs2sigs
 
 ### NT驱动
 

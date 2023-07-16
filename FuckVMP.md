@@ -15,3 +15,5 @@ https://github.com/woxihuannisja/vmp3-import-fix
 [hzqst/VmwareHardenedLoader: Vmware Hardened VM detection mitigation loader (anti anti-vm) (github.com)](https://github.com/hzqst/VmwareHardenedLoader)
 
 [wallds/NoVmpy (github.com)](https://github.com/wallds/NoVmpy)
+
+https://github.com/g0mxxm/Anti-Obfuscation

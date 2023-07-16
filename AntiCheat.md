@@ -239,6 +239,16 @@ ReadProcessMemory读取自进程 可以避免被监控
 
 ## 常见反作弊模块研究
 
+https://github.com/waryas/KACE/
+
+内核模拟器 用于研究AC驱动行为
+
+### VGK
+
+http://www.qfrost.com/posts/vanguard/
+
+https://github.com/Nuxar1/DecryptionDumper
+
 ### VAC
 
 #### [VAC](https://github.com/danielkrupinski/VAC)
@@ -257,5 +267,4 @@ https://github.com/mathisvickie/KMAC
 
 https://github.com/mq1n/NoMercy
 
-https://github.com/chztbby/RebirthGuard/blob/master/RebirthGuard/RebirthGuard/verifying.cpp#L126
-
+https://github.com/chztbby/RebirthGuard
