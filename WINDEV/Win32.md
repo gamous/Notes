@@ -142,8 +142,22 @@ typedef struct _PROCESS_BASIC_INFORMATION {
 
 ## Syscall
 
-https://tttang.com/archive/1464/
+https://github.com/joshfinley/SyscallDumper
+
+https://github.com/hfiref0x/SyscallTables
 
 Microsoft Windows System Call Table (XP/2003/Vista/2008/7/2012/8/10)  https://j00ru.vexillium.org/syscalls/nt/64/
 
 Windows x86-64 WIN32K.SYS System Call Table (XP/2003/Vista/2008/7/2012/8/10) https://j00ru.vexillium.org/syscalls/win32k/64/
+
+https://github.com/VeroFess/X64SystemCall
+
+单asm syscall
+
+https://tttang.com/archive/1464/
+
+
+
+windows镜像下载
+
+https://files.rg-adguard.net/

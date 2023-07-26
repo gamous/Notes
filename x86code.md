@@ -26,6 +26,10 @@ https://github.com/asmjit/asmjit
 
 被x64dbg在内的项目使用
 
+### bddisasm
+
+https://github.com/bitdefender/bddisasm
+
 
 
 ### xbyak

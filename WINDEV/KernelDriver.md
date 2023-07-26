@@ -279,6 +279,8 @@ DbgPrint("Test");
 DbgBreakPoint();
 ```
 
+内核态调试器重定向用户态调试器 https://bbs.kanxue.com/thread-260666.htm
+
 **DbgPrint的信息还可以在DebugView 中查看** (勾选Capture Kernel)
 
 更好用的DebugViewPP

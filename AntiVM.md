@@ -141,6 +141,10 @@ bool CheckCPU(){
 
 ```
 
+## 基于时间
+
+https://github.com/SamuelTulach/vmcheck/blob/main/vmcheck/vmcheck/main.c
+
 ## 壳检测
 
 ### VMProtect
@@ -240,6 +244,10 @@ scsi0:0.vendorID = "Tencent"
 
 ethernet0.address = "00:11:56:20:D2:E9"
 ```
+
+## 
+
+
 
 ### VmwareHardenedLoader
 

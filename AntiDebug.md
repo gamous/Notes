@@ -1258,6 +1258,10 @@ https://github.com/Kwansy98/EasyPdb
 
 ## 相关项目
 
+### wubbabooMark
+
+https://github.com/hfiref0x/WubbabooMark
+
 ### al-khaser
 
 https://github.com/LordNoteworthy/al-khaser
@@ -1322,6 +1326,15 @@ https://github.com/xyddnljydd/vt-ReloadDbg
 
 部分重写调试
 
+### Mirage
+
+幻境 VT反调试
+
+1. win7 x64 ( *`6.1.7600`*)
+2. win10 19h1 x64 (*`10.0.18362.XXXX`*)
+
+https://github.com/stonedreamforest/Mirage
+
 ### driver_callback_bypass_1909
 
 https://github.com/FiYHer/driver_callback_bypass_1909
@@ -1339,6 +1352,30 @@ https://github.com/FiYHer/driver_callback_bypass_1909
 从0开始编写简易调试器 https://bbs.kanxue.com/thread-276162.htm
 
 一个调试器的实现 https://www.cnblogs.com/zplutor/archive/2011/03/04/1971279.html
+
+```c
+DebugActiveProcess(pid)
+DEBUG_EVENT debug_event;
+WaitForDebugEvent(&debug_event, INFINITE);
+typedef struct _DEBUG_EVENT {
+    DWORD dwDebugEventCode;
+    DWORD dwProcessId;
+    DWORD dwThreadId;
+    union {
+        EXCEPTION_DEBUG_INFO Exception;
+        CREATE_THREAD_DEBUG_INFO CreateThread;
+        CREATE_PROCESS_DEBUG_INFO CreateProcessInfo;
+        EXIT_THREAD_DEBUG_INFO ExitThread;
+        EXIT_PROCESS_DEBUG_INFO ExitProcess;
+        LOAD_DLL_DEBUG_INFO LoadDll;
+        UNLOAD_DLL_DEBUG_INFO UnloadDll;
+        OUTPUT_DEBUG_STRING_INFO DebugString;
+        RIP_INFO RipInfo;
+    } u;
+} DEBUG_EVENT, *LPDEBUG_EVENT;
+```
+
+
 
 ## 参考资料 Ref
 
