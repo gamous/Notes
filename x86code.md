@@ -1,3 +1,35 @@
+
+
+
+
+
+
+# x86指令集 汇编与反汇编
+
+
+
+## INTEL 指令格式
+
+![image-20230817140240944](./assets/image-20230817140240944.png)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 https://c9x.me/x86/
 
 http://ref.x86asm.net/geek.html
@@ -6,7 +38,21 @@ http://ref.x86asm.net/geek.html
 
 https://github.com/ia32-doc/ia32-doc
 
+
+
+
+
 ## 汇编反汇编引擎
+
+### HDE
+
+https://github.com/Cerbersec/HDE64
+
+### LDE
+
+只能反汇编长度
+
+https://github.com/BeaEngine/lde64
 
 ### zasm
 
